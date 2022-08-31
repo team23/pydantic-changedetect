@@ -132,7 +132,7 @@ def test_changed_base_is_resetable():
 
     assert something.dict(exclude_unchanged=True) == {"id": 2}
 
-    something.reset_changed_state()
+    something.reset_changed()
 
     assert something.dict(exclude_unchanged=True) == {}
 

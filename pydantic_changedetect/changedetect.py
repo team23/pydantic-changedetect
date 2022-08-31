@@ -46,9 +46,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.reset_changed_state()
+        self.reset_changed()
 
-    def reset_changed_state(self) -> None:
+    def reset_changed(self) -> None:
         """Reset the changed state, this will clear __changed_fields__"""
 
         object.__setattr__(self, "__original__", {})
@@ -200,7 +200,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         """Construct an unvalidated instance"""
 
         m = cast(SelfT, super().construct(*args, **kwargs))
-        m.reset_changed_state()
+        m.reset_changed()
         return m
 
     def _copy_and_set_values(
