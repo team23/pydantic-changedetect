@@ -1,12 +1,22 @@
 from typing import (
-    Callable, TYPE_CHECKING, Any, Dict, Set, Type, TypeVar, overload, cast, no_type_check, Optional,
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
     Union,
+    cast,
+    no_type_check,
+    overload,
 )
 
 import pydantic
 
 if TYPE_CHECKING:
-    from pydantic.typing import DictStrAny, SetStr, AbstractSetIntStr, MappingIntStrAny
+    from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny, SetStr
 
 NO_VALUE = object()
 
@@ -69,7 +79,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 if isinstance(field_value, list):
                     field_value_list = field_value
                 elif isinstance(field_value, dict):
-                    field_value_list = field_value.values()
+                    field_value_list = list(field_value.values())
                 else:
                     # Continue on unsupported type
                     continue
@@ -110,9 +120,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             ):
                 # Collect all possible values
                 if isinstance(field_value, list):
-                    field_value_list = enumerate(field_value)
+                    field_value_list = list(enumerate(field_value))
                 elif isinstance(field_value, dict):
-                    field_value_list = field_value.items()
+                    field_value_list = list(field_value.items())
                 else:
                     # Continue on unsupported type
                     continue
@@ -141,7 +151,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     def set_changed(self, *fields: str) -> None: ...
 
     @overload
-    def set_changed(self, field: str, original: Any = NO_VALUE) -> None: ...
+    def set_changed(self, field: str, /, *, original: Any = NO_VALUE) -> None: ...
 
     def set_changed(self, *fields: str, original: Any = NO_VALUE) -> None:
         """
@@ -187,7 +197,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     def construct(cls: Type["SelfT"], *args: Any, **kwargs: Any) -> "SelfT":
         """Construct an unvalidated instance"""
 
-        m = cast(ChangeDetectionMixin, super().construct(*args, **kwargs))
+        m = cast(SelfT, super().construct(*args, **kwargs))
         m.reset_changed_state()
         return m
 
@@ -203,7 +213,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         """
 
         m = cast(
-            ChangeDetectionMixin,
+            SelfT,
             super()._copy_and_set_values(
                 values,
                 fields_set,
@@ -243,7 +253,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         if exclude_unchanged:
             changed_fields = self.__changed_fields__
-            if "include" in kwargs:
+            if "include" in kwargs and kwargs["include"] is not None:
                 kwargs["include"] = {  # calculate intersect
                     i
                     for i

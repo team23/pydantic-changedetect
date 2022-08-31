@@ -22,6 +22,11 @@ flake8-isort = "^4.2.0"
 flake8-print = "^5.0.0"
 flake8-debugger = "^4.1.2"
 
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+line_length = 115
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
