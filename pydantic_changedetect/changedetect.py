@@ -135,6 +135,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                     ):
                         for changed_field in inner_field_value.__changed_fields_recursive__:
                             changed_fields.add(f"{field_name}.{inner_field_index}.{changed_field}")
+                        changed_fields.add(f"{field_name}.{inner_field_index}")
+                        changed_fields.add(f"{field_name}")
 
         return changed_fields
 
