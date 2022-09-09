@@ -1,5 +1,11 @@
 # Pydantic change detection
 
+## Installation
+
+Just use `pip install pydantic-changedetect` to install the library.
+
+## About
+
 When working with database models it is pretty common to want to detect changes
 to the model attributes. The `ChangeDetectionMixin` just provides this mechanism
 to any pydantic models. Changes will be detected and stored after the model
@@ -24,7 +30,7 @@ Using the `ChangeDetectionMixin` the pydantic models are extended, so:
   `exclude_unchanged`, which - when set to True - will only export the
   changed fields
 
-## Example
+### Example
 
 ```python
 import pydantic
@@ -42,7 +48,7 @@ something.has_changed  # = True
 something.__changed_fields__  # = {"name"}
 ```
 
-## Restrictions
+### Restrictions
 
 `ChangeDetectionMixin` currently cannot detect changes inside lists, dicts and
 other structured objects. In those cases you are required to set the changed
