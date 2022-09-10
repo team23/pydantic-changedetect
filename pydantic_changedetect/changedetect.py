@@ -15,6 +15,8 @@ from typing import (
 
 import pydantic
 
+from .utils import safe_issubclass
+
 if TYPE_CHECKING:
     from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny, SetStr
 
@@ -72,8 +74,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             # Field contains ChangeDetectionMixin's, but inside list/dict structure
             elif (
                 field_value
-                and isinstance(model_field.type_, type)
-                and issubclass(model_field.type_, ChangeDetectionMixin)
+                and safe_issubclass(model_field.type_, ChangeDetectionMixin)
             ):
                 # Collect all possible values
                 if isinstance(field_value, list):
@@ -115,8 +116,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             # Field contains ChangeDetectionMixin's, but inside list/dict structure
             elif (
                 field_value
-                and isinstance(model_field.type_, type)
-                and issubclass(model_field.type_, ChangeDetectionMixin)
+                and safe_issubclass(model_field.type_, ChangeDetectionMixin)
             ):
                 # Collect all possible values
                 if isinstance(field_value, list):
