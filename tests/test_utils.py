@@ -1,8 +1,8 @@
 import abc
-
-import pytest
 import sys
 from typing import Dict, List
+
+import pytest
 
 from pydantic_changedetect.utils import safe_issubclass
 
