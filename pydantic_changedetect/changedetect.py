@@ -364,33 +364,93 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 ),
             )
 
-    # Compatibility for pydantic 2.0 methods to support pydantic 1.0 migration 🙈
+    # Compatibility for pydantic 2.0 compatibility methods to support pydantic 1.0 migration 🙈
+
+    def copy(
+        self: "Model",
+        *,
+        include: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
+        exclude: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
+        update: Optional[Dict[str, Any]] = None,  # noqa UP006
+        deep: bool = False,
+    ) -> "Model":
+        warnings.warn(
+            "copy(...) is deprecated even in pydantic v2, use model_copy(...) instead",
+            DeprecationWarning,
+        )
+        clone = cast(
+            "Model",
+            super().copy(
+                include=include,
+                exclude=exclude,
+                update=update,
+                deep=deep,
+            ),
+        )
+        object.__setattr__(clone, "model_original", self.model_original.copy())
+        object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+        return clone
 
     if PYDANTIC_V2:
-        def copy(
-            self: "Model",
+        # The following methods are SLIGHTLY different fpr v1 and v2, so we need to keep
+        # them separate
+
+        def dict(
+            self,
             *,
-            include: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
-            exclude: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
-            update: Optional[Dict[str, Any]] = None,  # noqa UP006
-            deep: bool = False,
-        ) -> "Model":
-            warnings.warn(
-                "copy(...) is deprecated even in pydantic v2, use model_copy(...) instead",
-                DeprecationWarning,
-            )
-            clone = cast(
-                "Model",
-                super().copy(
+            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+        ) -> Dict[str, Any]:
+            """
+            Generate a dictionary representation of the model, optionally
+            specifying which fields to include or exclude.
+            """
+
+            return super().dict(
+                **self._get_changed_export_includes(
                     include=include,
                     exclude=exclude,
-                    update=update,
-                    deep=deep,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
                 ),
             )
-            object.__setattr__(clone, "model_original", self.model_original.copy())
-            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
-            return clone
+
+        def json(
+            self,
+            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            **dumps_kwargs: Any,
+        ) -> str:
+            """
+            Generate a JSON representation of the model, `include` and `exclude`
+            arguments as per `dict()`.
+            """
+
+            return super().json(
+                **self._get_changed_export_includes(
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    **dumps_kwargs,
+                ),
+            )
 
     # Compatibility methods for pydantic v1
 
@@ -403,29 +463,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             m.model_reset_changed()
             return m
 
-        def copy(  # noqa: F811
-            self: "Model",
-            *,
-            include: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
-            exclude: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
-            update: Optional[Dict[str, Any]] = None,  # noqa UP006
-            deep: bool = False,
-        ) -> "Model":
-            clone = cast(
-                "Model",
-                super().copy(
-                    include=include,
-                    exclude=exclude,
-                    update=update,
-                    deep=deep,
-                ),
-            )
-            clone.model_reset_changed()
-            object.__setattr__(clone, "model_original", self.model_original.copy())
-            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
-            return clone
-
-        def dict(
+        def dict(  # noqa: F811
             self,
             *,
             include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
@@ -455,7 +493,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 ),
             )
 
-        def json(
+        def json(  # noqa: F811
             self,
             include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
             exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
