@@ -279,7 +279,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def model_copy(
             self: "Model",
             *,
-            update: dict[str, Any] | None = None,
+            update: Optional[Dict[str, Any]] = None,
             deep: bool = False,
         ) -> "Model":
             clone = cast(
@@ -296,7 +296,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def model_dump(
             self,
             *,
-            mode: Literal['json', 'python'] | str = 'python',
+            mode: Union[Literal['json', 'python'], str] = 'python',
             include: "IncEx" = None,
             exclude: "IncEx" = None,
             by_alias: bool = False,
@@ -306,7 +306,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             exclude_unchanged: bool = False,
             round_trip: bool = False,
             warnings: bool = True,
-        ) -> dict[str, Any]:
+        ) -> Dict[str, Any]:
             """
             Generate a dictionary representation of the model, optionally specifying
             which fields to include or exclude.
@@ -332,7 +332,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def model_dump_json(
             self,
             *,
-            indent: int | None = None,
+            indent: Optional[int] = None,
             include: "IncEx" = None,
             exclude: "IncEx" = None,
             by_alias: bool = False,
@@ -370,9 +370,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def copy(
             self: "Model",
             *,
-            include: "AbstractSetIntStr | MappingIntStrAny | None" = None,
-            exclude: "AbstractSetIntStr | MappingIntStrAny | None" = None,
-            update: Dict[str, Any] | None = None,  # noqa UP006
+            include: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
+            exclude: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
+            update: Optional[Dict[str, Any]] = None,  # noqa UP006
             deep: bool = False,
         ) -> "Model":
             warnings.warn(
@@ -399,16 +399,16 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def construct(cls: Type["Model"], *args: Any, **kwargs: Any) -> "Model":
             """Construct an unvalidated instance"""
 
-            m = cast(Model, super().construct(*args, **kwargs))
+            m = cast("Model", super().construct(*args, **kwargs))
             m.model_reset_changed()
             return m
 
         def copy(  # noqa: F811
             self: "Model",
             *,
-            include: "AbstractSetIntStr | MappingIntStrAny | None" = None,
-            exclude: "AbstractSetIntStr | MappingIntStrAny | None" = None,
-            update: Dict[str, Any] | None = None,  # noqa UP006
+            include: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
+            exclude: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
+            update: Optional[Dict[str, Any]] = None,  # noqa UP006
             deep: bool = False,
         ) -> "Model":
             clone = cast(
