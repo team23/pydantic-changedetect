@@ -1,8 +1,10 @@
+import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Dict,
+    Literal,
     Optional,
     Set,
     Type,
@@ -15,14 +17,17 @@ from typing import (
 
 import pydantic
 
-from .utils import safe_issubclass
+from ._compat import PYDANTIC_V1, PYDANTIC_V2, PydanticCompat
+from .utils import is_pydantic_change_detect_annotation
 
 if TYPE_CHECKING:
-    from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny, SetStr
+    from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
+    if PYDANTIC_V2:
+        from pydantic.main import IncEx
+
+    Model = TypeVar("Model", bound="ChangeDetectionMixin")
 
 NO_VALUE = object()
-
-SelfT = TypeVar("SelfT", bound="ChangeDetectionMixin")
 
 
 class ChangeDetectionMixin(pydantic.BaseModel):
@@ -35,49 +40,59 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             name: str
 
         something = Something(name="Alice")
-        something.has_changed  # False
-        something.__changed_fields__  # empty
+        something.model_has_changed  # False
+        something.model_changed_fields  # empty
         something.name = "Bob"
-        something.has_changed  # True
-        something.__changed_fields__  # {"name"}
+        something.model_has_changed  # True
+        something.model_changed_fields  # {"name"}
+        something.model_self_changed_fields  # {"name": "Alice"}
         ```
     """
 
-    __original__: Dict[str, Any] = pydantic.PrivateAttr({})
-    __self_changed_fields__: Set[str] = pydantic.PrivateAttr({})
+    if TYPE_CHECKING:
+        model_original: Dict[str, Any]
+        model_self_changed_fields: Set[str]
+
+    __slots__ = ("model_original", "model_self_changed_fields")
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.reset_changed()
+        self.model_reset_changed()
 
-    def reset_changed(self) -> None:
-        """Reset the changed state, this will clear __changed_fields__"""
+    def model_reset_changed(self) -> None:
+        """
+        Reset the changed state, this will clear model_self_changed_fields and model_original
+        """
 
-        object.__setattr__(self, "__original__", {})
-        object.__setattr__(self, "__self_changed_fields__", set())
+        object.__setattr__(self, "model_original", {})
+        object.__setattr__(self, "model_self_changed_fields", set())
 
     @property
-    def __changed_fields__(self) -> Set[str]:
+    def model_changed_fields(self) -> Set[str]:
         """Return list of all changed fields, submodels are considered as one field"""
 
-        changed_fields = self.__self_changed_fields__.copy()
-        for field_name, model_field in self.__fields__.items():
+        self_compat = PydanticCompat(self)
+
+        changed_fields = self.model_self_changed_fields.copy()
+        for field_name, model_field in self_compat.model_fields.items():
             field_value = self.__dict__[field_name]
 
             # Value is a ChangeDetectionMixin instance itself
             if (
                 isinstance(field_value, ChangeDetectionMixin)
-                and field_value.has_changed
+                and field_value.model_has_changed
             ):
                 changed_fields.add(field_name)
 
             # Field contains ChangeDetectionMixin's, but inside list/dict structure
             elif (
                 field_value
-                and safe_issubclass(model_field.type_, ChangeDetectionMixin)
+                and is_pydantic_change_detect_annotation(
+                    self_compat.get_model_field_info_annotation(model_field),
+                )
             ):
                 # Collect all possible values
-                if isinstance(field_value, list):
+                if isinstance(field_value, (list, tuple)):
                     field_value_list = field_value
                 elif isinstance(field_value, dict):
                     field_value_list = list(field_value.values())
@@ -89,7 +104,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 for inner_field_value in field_value_list:
                     if (
                         isinstance(inner_field_value, ChangeDetectionMixin)
-                        and inner_field_value.has_changed
+                        and inner_field_value.model_has_changed
                     ):
                         changed_fields.add(field_name)
                         break
@@ -97,29 +112,33 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         return changed_fields
 
     @property
-    def __changed_fields_recursive__(self) -> Set[str]:
+    def model_changed_fields_recursive(self) -> Set[str]:
         """Return a list of all changed fields recursive using dotted syntax"""
 
-        changed_fields = self.__self_changed_fields__.copy()
-        for field_name, model_field in self.__fields__.items():
+        self_compat = PydanticCompat(self)
+
+        changed_fields = self.model_self_changed_fields.copy()
+        for field_name, model_field in self_compat.model_fields.items():
             field_value = self.__dict__[field_name]
 
             # Value is a ChangeDetectionMixin instance itself
             if (
                     isinstance(field_value, ChangeDetectionMixin)
-                    and field_value.has_changed
+                    and field_value.model_has_changed
             ):
                 changed_fields.add(field_name)
-                for changed_field in field_value.__changed_fields_recursive__:
+                for changed_field in field_value.model_changed_fields_recursive:
                     changed_fields.add(f"{field_name}.{changed_field}")
 
             # Field contains ChangeDetectionMixin's, but inside list/dict structure
             elif (
                 field_value
-                and safe_issubclass(model_field.type_, ChangeDetectionMixin)
+                and is_pydantic_change_detect_annotation(
+                    self_compat.get_model_field_info_annotation(model_field),
+                )
             ):
                 # Collect all possible values
-                if isinstance(field_value, list):
+                if isinstance(field_value, (list, tuple)):
                     field_value_list = list(enumerate(field_value))
                 elif isinstance(field_value, dict):
                     field_value_list = list(field_value.items())
@@ -131,9 +150,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 for inner_field_index, inner_field_value in field_value_list:
                     if (
                         isinstance(inner_field_value, ChangeDetectionMixin)
-                        and inner_field_value.has_changed
+                        and inner_field_value.model_has_changed
                     ):
-                        for changed_field in inner_field_value.__changed_fields_recursive__:
+                        for changed_field in inner_field_value.model_changed_fields_recursive:
                             changed_fields.add(f"{field_name}.{inner_field_index}.{changed_field}")
                         changed_fields.add(f"{field_name}.{inner_field_index}")
                         changed_fields.add(f"{field_name}")
@@ -141,26 +160,28 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         return changed_fields
 
     @property
-    def has_changed(self) -> bool:
+    def model_has_changed(self) -> bool:
         """Return True, when some field was changed"""
 
-        if self.__self_changed_fields__:
+        if self.model_self_changed_fields:
             return True
 
-        return bool(self.__changed_fields__)
+        return bool(self.model_changed_fields)
 
     @overload
-    def set_changed(self, *fields: str) -> None: ...
+    def model_set_changed(self, *fields: str) -> None: ...
 
     @overload
-    def set_changed(self, field: str, /, *, original: Any = NO_VALUE) -> None: ...
+    def model_set_changed(self, field: str, /, *, original: Any = NO_VALUE) -> None: ...
 
-    def set_changed(self, *fields: str, original: Any = NO_VALUE) -> None:
+    def model_set_changed(self, *fields: str, original: Any = NO_VALUE) -> None:
         """
         Set fields as changed.
 
         Optionally provide an original value for the field.
         """
+
+        self_compat = PydanticCompat(self)
 
         # Ensure we have a valid call
         if original is not NO_VALUE and len(fields) > 1:
@@ -171,77 +192,51 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         # Ensure all fields exists
         for name in fields:
-            if name not in self.__fields__:
+            if name not in self_compat.model_fields:
                 raise AttributeError(f"Field {name} not available in this model")
 
         # Mark fields as changed
         for name in fields:
             if original is NO_VALUE:
-                self.__original__[name] = self.__dict__[name]
+                self.model_original[name] = self.__dict__[name]
             else:
-                self.__original__[name] = original
-            self.__self_changed_fields__.add(name)
+                self.model_original[name] = original
+            self.model_self_changed_fields.add(name)
 
     @no_type_check
     def __setattr__(self, name, value) -> None:  # noqa: ANN001
+        self_compat = PydanticCompat(self)
+
         # Private attributes need not to be handled
-        if name in self.__private_attributes__:
+        if (
+            self.__private_attributes__  # may be None
+            and name in self.__private_attributes__
+        ):
             super().__setattr__(name, value)
             return
 
         # Store changed data
-        if name in self.__fields__ and name not in self.__original__:
-            self.__original__[name] = self.__dict__[name]
+        if name in self_compat.model_fields and name not in self.model_original:
+            self.model_original[name] = self.__dict__[name]
         super().__setattr__(name, value)
-        self.__self_changed_fields__.add(name)
-
-    @classmethod
-    def construct(cls: Type["SelfT"], *args: Any, **kwargs: Any) -> "SelfT":
-        """Construct an unvalidated instance"""
-
-        m = cast(SelfT, super().construct(*args, **kwargs))
-        m.reset_changed()
-        return m
-
-    def _copy_and_set_values(
-        self: SelfT,
-        values: 'DictStrAny',
-        fields_set: 'SetStr',
-        *,
-        deep: bool,
-    ) -> SelfT:
-        """
-        Return a copy of the model instance, will be used in copy() (among others).
-        """
-
-        m = cast(
-            SelfT,
-            super()._copy_and_set_values(
-                values,
-                fields_set,
-                deep=deep,
-            ),
-        )
-        object.__setattr__(m, "__original__", self.__original__.copy())
-        object.__setattr__(m, "__self_changed_fields__", self.__self_changed_fields__.copy())
-        return m
+        self.model_self_changed_fields.add(name)
 
     def __getstate__(self) -> Dict[str, Any]:
         state = super().__getstate__()
-        state["__original__"] = self.__original__.copy()
-        state["__self_changed_fields__"] = self.__self_changed_fields__.copy()
+        state["model_original"] = self.model_original.copy()
+        state["model_self_changed_fields"] = self.model_self_changed_fields.copy()
         return state
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
         super().__setstate__(state)
-        if "__original__" in state:
-            object.__setattr__(self, "__original__", state["__original__"])
+        if "model_original" in state:
+            object.__setattr__(self, "model_original", state["model_original"])
         else:
-            object.__setattr__(self, "__original__", {})
-        if "__self_changed_fields__" in state:
-            object.__setattr__(self, "__self_changed_fields__", state["__self_changed_fields__"])
+            object.__setattr__(self, "model_original", {})
+        if "model_self_changed_fields" in state:
+            object.__setattr__(self, "model_self_changed_fields", state["model_self_changed_fields"])
         else:
-            object.__setattr__(self, "__self_changed_fields__", set())
+            object.__setattr__(self, "model_self_changed_fields", set())
 
     def _get_changed_export_includes(
         self,
@@ -254,7 +249,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         """
 
         if exclude_unchanged:
-            changed_fields = self.__changed_fields__
+            changed_fields = self.model_changed_fields
             if "include" in kwargs and kwargs["include"] is not None:
                 kwargs["include"] = {  # calculate intersect
                     i
@@ -266,67 +261,293 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 kwargs["include"] = set(changed_fields)
         return kwargs
 
-    def dict(
-        self,
-        *,
-        include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-        exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-        by_alias: bool = False,
-        skip_defaults: Optional[bool] = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False,
-        exclude_unchanged: bool = False,
-    ) -> Dict[str, Any]:
-        """
-        Generate a dictionary representation of the model, optionally
-        specifying which fields to include or exclude.
-        """
+    # pydantic 2.0 only methods
 
-        return super().dict(
-            **self._get_changed_export_includes(
-                include=include,
-                exclude=exclude,
-                by_alias=by_alias,
-                skip_defaults=skip_defaults,
-                exclude_unset=exclude_unset,
-                exclude_defaults=exclude_defaults,
-                exclude_none=exclude_none,
-                exclude_unchanged=exclude_unchanged,
-            ),
+    if PYDANTIC_V2:
+        @classmethod
+        def model_construct(cls: Type["Model"], *args: Any, **kwargs: Any) -> "Model":
+            """Construct an unvalidated instance"""
+
+            m = cast("Model", super().model_construct(*args, **kwargs))
+            m.model_reset_changed()
+            return m
+
+        def model_post_init(self, __context: Any) -> None:
+            super().model_post_init(__context)
+            self.model_reset_changed()
+
+        def model_copy(
+            self: "Model",
+            *,
+            update: dict[str, Any] | None = None,
+            deep: bool = False,
+        ) -> "Model":
+            clone = cast(
+                "Model",
+                super().model_copy(
+                    update=update,
+                    deep=deep,
+                ),
+            )
+            object.__setattr__(clone, "model_original", self.model_original.copy())
+            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            return clone
+
+        def model_dump(
+            self,
+            *,
+            mode: Literal['json', 'python'] | str = 'python',
+            include: "IncEx" = None,
+            exclude: "IncEx" = None,
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            round_trip: bool = False,
+            warnings: bool = True,
+        ) -> dict[str, Any]:
+            """
+            Generate a dictionary representation of the model, optionally specifying
+            which fields to include or exclude.
+
+            Extends normal pydantic method to also allow to use `exclude_unchanged`.
+            """
+
+            return super().model_dump(
+                **self._get_changed_export_includes(
+                    mode=mode,
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    round_trip=round_trip,
+                    warnings=warnings,
+                ),
+            )
+
+        def model_dump_json(
+            self,
+            *,
+            indent: int | None = None,
+            include: "IncEx" = None,
+            exclude: "IncEx" = None,
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            round_trip: bool = False,
+            warnings: bool = True,
+        ) -> str:
+            """
+            Generates a JSON representation of the model using Pydantic's `to_json`
+            method.
+
+            Extends normal pydantic method to also allow to use `exclude_unchanged`.
+            """
+
+            return super().model_dump_json(
+                **self._get_changed_export_includes(
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    round_trip=round_trip,
+                    warnings=warnings,
+                ),
+            )
+
+    # Compatibility for pydantic 2.0 methods to support pydantic 1.0 migration 🙈
+
+    if PYDANTIC_V2:
+        def copy(
+            self: "Model",
+            *,
+            include: "AbstractSetIntStr | MappingIntStrAny | None" = None,
+            exclude: "AbstractSetIntStr | MappingIntStrAny | None" = None,
+            update: Dict[str, Any] | None = None,  # noqa UP006
+            deep: bool = False,
+        ) -> "Model":
+            warnings.warn(
+                "copy(...) is deprecated even in pydantic v2, use model_copy(...) instead",
+                DeprecationWarning,
+            )
+            clone = cast(
+                "Model",
+                super().copy(
+                    include=include,
+                    exclude=exclude,
+                    update=update,
+                    deep=deep,
+                ),
+            )
+            object.__setattr__(clone, "model_original", self.model_original.copy())
+            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            return clone
+
+    # Compatibility methods for pydantic v1
+
+    if PYDANTIC_V1:
+        @classmethod
+        def construct(cls: Type["Model"], *args: Any, **kwargs: Any) -> "Model":
+            """Construct an unvalidated instance"""
+
+            m = cast(Model, super().construct(*args, **kwargs))
+            m.model_reset_changed()
+            return m
+
+        def copy(  # noqa: F811
+            self: "Model",
+            *,
+            include: "AbstractSetIntStr | MappingIntStrAny | None" = None,
+            exclude: "AbstractSetIntStr | MappingIntStrAny | None" = None,
+            update: Dict[str, Any] | None = None,  # noqa UP006
+            deep: bool = False,
+        ) -> "Model":
+            clone = cast(
+                "Model",
+                super().copy(
+                    include=include,
+                    exclude=exclude,
+                    update=update,
+                    deep=deep,
+                ),
+            )
+            clone.model_reset_changed()
+            object.__setattr__(clone, "model_original", self.model_original.copy())
+            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            return clone
+
+        def dict(
+            self,
+            *,
+            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            by_alias: bool = False,
+            skip_defaults: Optional[bool] = None,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+        ) -> Dict[str, Any]:
+            """
+            Generate a dictionary representation of the model, optionally
+            specifying which fields to include or exclude.
+            """
+
+            return super().dict(
+                **self._get_changed_export_includes(
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    skip_defaults=skip_defaults,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                ),
+            )
+
+        def json(
+            self,
+            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+            by_alias: bool = False,
+            skip_defaults: Optional[bool] = None,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            encoder: Optional[Callable[[Any], Any]] = None,
+            models_as_dict: bool = True,
+            **dumps_kwargs: Any,
+        ) -> str:
+            """
+            Generate a JSON representation of the model, `include` and `exclude`
+            arguments as per `dict()`.
+            """
+
+            return super().json(
+                **self._get_changed_export_includes(
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    skip_defaults=skip_defaults,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    encoder=encoder,
+                    models_as_dict=models_as_dict,
+                    **dumps_kwargs,
+                ),
+            )
+
+    # Compatibility methods for older versions of pydantic-changedetect
+
+    def reset_changed(self) -> None:
+        warnings.warn(
+            "reset_changed() is deprecated, use model_reset_changed() instead",
+            DeprecationWarning,
         )
+        self.model_reset_changed()
 
-    def json(
-        self,
-        include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-        exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-        by_alias: bool = False,
-        skip_defaults: Optional[bool] = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False,
-        exclude_unchanged: bool = False,
-        encoder: Optional[Callable[[Any], Any]] = None,
-        models_as_dict: bool = True,
-        **dumps_kwargs: Any,
-    ) -> str:
-        """
-        Generate a JSON representation of the model, `include` and `exclude`
-        arguments as per `dict()`.
-        """
-
-        return super().json(
-            **self._get_changed_export_includes(
-                include=include,
-                exclude=exclude,
-                by_alias=by_alias,
-                skip_defaults=skip_defaults,
-                exclude_unset=exclude_unset,
-                exclude_defaults=exclude_defaults,
-                exclude_none=exclude_none,
-                exclude_unchanged=exclude_unchanged,
-                encoder=encoder,
-                models_as_dict=models_as_dict,
-                **dumps_kwargs,
-            ),
+    @property
+    def __original__(self) -> Dict[str, Any]:
+        warnings.warn(
+            "__original__ is deprecated, use model_original instead",
+            DeprecationWarning,
         )
+        return self.model_original
+
+    @property
+    def __self_changed_fields__(self) -> Set[str]:
+        warnings.warn(
+            "__self_changed_fields__ is deprecated, use model_self_changed_fields instead",
+            DeprecationWarning,
+        )
+        return self.model_self_changed_fields
+
+    @property
+    def __changed_fields__(self) -> Set[str]:
+        warnings.warn(
+            "__changed_fields__ is deprecated, use model_changed_fields instead",
+            DeprecationWarning,
+        )
+        return self.model_changed_fields
+
+    @property
+    def __changed_fields_recursive__(self) -> Set[str]:
+        warnings.warn(
+            "__changed_fields_recursive__ is deprecated, use model_changed_fields_recursive instead",
+            DeprecationWarning,
+        )
+        return self.model_changed_fields_recursive
+
+    @property
+    def has_changed(self) -> bool:
+        warnings.warn(
+            "has_changed is deprecated, use model_has_changed instead",
+            DeprecationWarning,
+        )
+        return self.model_has_changed
+
+    @overload
+    def set_changed(self, *fields: str) -> None: ...
+
+    @overload
+    def set_changed(self, field: str, /, *, original: Any = NO_VALUE) -> None: ...
+
+    def set_changed(self, *fields: str, original: Any = NO_VALUE) -> None:
+        warnings.warn(
+            "set_changed(...) is deprecated, use model_set_changed(...) instead",
+            DeprecationWarning,
+        )
+        self.model_set_changed(*fields, original=original)

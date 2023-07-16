@@ -1,4 +1,6 @@
-from typing import Any
+from typing import Any, Dict, List, Mapping, Set, Tuple, Union, get_args, get_origin
+
+import pydantic_changedetect
 
 
 def safe_issubclass(cls: Any, type_: Any) -> bool:
@@ -27,3 +29,41 @@ def safe_issubclass(cls: Any, type_: Any) -> bool:
         return issubclass(cls, type_)
     except TypeError:
         return False
+
+
+def is_pydantic_change_detect_annotation(annotation: type) -> bool:
+    """Returns True if the given annotation is a ChangeDetectionMixin annotation."""
+
+    # if annotation is an ChangeDetectionMixin everything is easy
+    if (
+        isinstance(annotation, type)
+        and issubclass(annotation, pydantic_changedetect.ChangeDetectionMixin)
+    ):
+        return True
+
+    # Otherwise we may need to handle typing arguments
+    origin = get_origin(annotation)
+    if (
+        origin is List
+        or origin is list
+        or origin is Set
+        or origin is set
+        or origin is Tuple
+        or origin is tuple
+    ):
+        return is_pydantic_change_detect_annotation(get_args(annotation)[0])
+    elif (
+        origin is Dict
+        or origin is dict
+        or origin is Mapping
+    ):
+        return is_pydantic_change_detect_annotation(get_args(annotation)[1])
+    elif origin is Union:
+        # Note: This includes Optional, as Optional[...] is just Union[..., None]
+        return any(
+            is_pydantic_change_detect_annotation(arg)
+            for arg in get_args(annotation)
+        )
+
+    # If we did not detect an ChangeDetectionMixin annotation, return False
+    return False
