@@ -1,5 +1,5 @@
 import pickle
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pydantic
 import pytest
@@ -9,6 +9,10 @@ from pydantic_changedetect._compat import PYDANTIC_V1, PYDANTIC_V2
 
 
 class Something(ChangeDetectionMixin, pydantic.BaseModel):
+    id: int
+
+
+class Unsupported(pydantic.BaseModel):
     id: int
 
 
@@ -26,6 +30,10 @@ class NestedTuple(ChangeDetectionMixin, pydantic.BaseModel):
 
 class NestedDict(ChangeDetectionMixin, pydantic.BaseModel):
     sub: Dict[str, Something]
+
+
+class NestedUnsupported(ChangeDetectionMixin, pydantic.BaseModel):
+    sub: Union[Unsupported, Something]
 
 
 class SomethingWithBrokenPickleState(Something):
@@ -310,6 +318,21 @@ def test_nested_dict():
     assert parent.model_changed_fields_recursive == {'sub', 'sub.something', 'sub.something.id'}
 
 
+def test_nested_unsupported():
+    unsupported = Unsupported(id=1)
+    parent = NestedUnsupported(sub=unsupported)
+
+    # Nothing changed so far
+    assert parent.model_has_changed is False
+
+    # Change unsupported inside parent
+    parent.sub.id = 2
+    assert parent.model_has_changed is False  # we cannot detect this
+    assert parent.model_self_changed_fields == set()
+    assert parent.model_changed_fields == set()
+    assert parent.model_changed_fields_recursive == set()
+
+
 def test_use_private_attributes_works():
     class SomethingPrivate(Something):
         _private: Optional[int] = pydantic.PrivateAttr(None)
@@ -333,4 +356,35 @@ def test_construct_works():
     assert something.model_has_changed is True
 
 
-# TODO: Test old version compatibility
+def test_compatibility_methods_work():
+    something = Something(id=1)
+
+    assert something.has_changed is False
+    assert not something.__self_changed_fields__
+    assert not something.__changed_fields__
+    assert not something.__changed_fields_recursive__
+    assert something.__original__ == {}
+
+    something.id = 2
+
+    assert something.has_changed is True
+    assert something.__self_changed_fields__ == {"id"}
+    assert something.__changed_fields__ == {"id"}
+    assert something.__changed_fields_recursive__ == {"id"}
+    assert something.__original__ == {"id": 1}
+
+    something.reset_changed()
+
+    assert something.has_changed is False
+    assert not something.__self_changed_fields__
+    assert not something.__changed_fields__
+    assert not something.__changed_fields_recursive__
+    assert something.__original__ == {}
+
+    something.set_changed("id", original=1)
+
+    assert something.has_changed is True
+    assert something.__self_changed_fields__ == {"id"}
+    assert something.__changed_fields__ == {"id"}
+    assert something.__changed_fields_recursive__ == {"id"}
+    assert something.__original__ == {"id": 1}

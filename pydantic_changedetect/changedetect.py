@@ -20,7 +20,7 @@ import pydantic
 from ._compat import PYDANTIC_V1, PYDANTIC_V2, PydanticCompat
 from .utils import is_pydantic_change_detect_annotation
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
     if PYDANTIC_V1:
         from pydantic.typing import DictStrAny, SetStr
@@ -51,7 +51,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         ```
     """
 
-    if TYPE_CHECKING:
+    if TYPE_CHECKING:  # pragma: no cover
         model_original: Dict[str, Any]
         model_self_changed_fields: Set[str]
 
@@ -456,7 +456,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     # Compatibility methods for pydantic v1
 
-    if PYDANTIC_V1:
+    if PYDANTIC_V1:  # pragma: no cover
         @classmethod
         def construct(cls: Type["Model"], *args: Any, **kwargs: Any) -> "Model":
             """Construct an unvalidated instance"""

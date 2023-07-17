@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Dict, List, Mapping, Set, Tuple, Union, get_args, get_origin
 
 import pydantic_changedetect
@@ -22,6 +23,11 @@ def safe_issubclass(cls: Any, type_: Any) -> bool:
     This function will catch the `TypeError` and return False in that case.
     """
 
+    warnings.warn(
+        "safe_issubclass() is deprecated and will be removed",
+        DeprecationWarning,
+    )
+
     if not isinstance(cls, type):
         return False
 
@@ -32,7 +38,9 @@ def safe_issubclass(cls: Any, type_: Any) -> bool:
 
 
 def is_pydantic_change_detect_annotation(annotation: type) -> bool:
-    """Returns True if the given annotation is a ChangeDetectionMixin annotation."""
+    """
+    Return True if the given annotation is a ChangeDetectionMixin annotation.
+    """
 
     # if annotation is an ChangeDetectionMixin everything is easy
     if (
