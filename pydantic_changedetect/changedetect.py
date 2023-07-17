@@ -22,6 +22,8 @@ from .utils import is_pydantic_change_detect_annotation
 
 if TYPE_CHECKING:
     from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
+    if PYDANTIC_V1:
+        from pydantic.typing import DictStrAny, SetStr
     if PYDANTIC_V2:
         from pydantic.main import IncEx
 
@@ -462,6 +464,29 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             m = cast("Model", super().construct(*args, **kwargs))
             m.model_reset_changed()
             return m
+
+        def _copy_and_set_values(
+            self: "Model",
+            values: 'DictStrAny',
+            fields_set: 'SetStr',
+            *,
+            deep: bool,
+        ) -> "Model":
+            """
+            Return a copy of the model instance, will be used in copy() (among others).
+            """
+
+            clone = cast(
+                "Model",
+                super()._copy_and_set_values(
+                    values,
+                    fields_set,
+                    deep=deep,
+                ),
+            )
+            object.__setattr__(clone, "model_original", self.model_original.copy())
+            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            return clone
 
         def dict(  # noqa: F811
             self,
