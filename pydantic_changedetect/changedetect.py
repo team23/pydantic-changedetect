@@ -488,7 +488,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
             return clone
 
-        def dict(  # noqa: F811
+        def dict(  # type: ignore[misc]  # noqa: F811
             self,
             *,
             include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
@@ -518,7 +518,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 ),
             )
 
-        def json(  # noqa: F811
+        def json(  # type: ignore[misc]  # noqa: F811
             self,
             include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
             exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
