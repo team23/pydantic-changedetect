@@ -111,13 +111,17 @@ def test_copy_keeps_state():
 def test_copy_keeps_state_with_v1_api():
     obj = Something(id=1)
 
-    assert not obj.copy().model_has_changed
-    assert obj.copy().model_changed_fields == set()
+    with pytest.warns(DeprecationWarning):
+        assert not obj.copy().model_has_changed
+    with pytest.warns(DeprecationWarning):
+        assert obj.copy().model_changed_fields == set()
 
     obj.id = 2
 
-    assert obj.copy().model_has_changed
-    assert obj.copy().model_changed_fields == {"id"}
+    with pytest.warns(DeprecationWarning):
+        assert obj.copy().model_has_changed
+    with pytest.warns(DeprecationWarning):
+        assert obj.copy().model_changed_fields == {"id"}
 
 
 @pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_dump()")
@@ -132,7 +136,22 @@ def test_export_as_dict():
     assert obj.model_dump(exclude_unchanged=True) == {"id": 2}
 
 
-# Test on pydantic v2, too - pydantic has a compatibility layer for this
+@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
+def test_export_as_dict_with_v1_api_on_v2():
+    obj = Something(id=1)
+
+    with pytest.warns(DeprecationWarning):
+        assert obj.dict() == {"id": 1}
+    with pytest.warns(DeprecationWarning):
+        assert obj.dict(exclude_unchanged=True) == {}
+
+    obj.id = 2
+
+    with pytest.warns(DeprecationWarning):
+        assert obj.dict(exclude_unchanged=True) == {"id": 2}
+
+
+@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
 def test_export_as_dict_with_v1_api():
     obj = Something(id=1)
 
@@ -160,12 +179,15 @@ def test_export_as_json():
 def test_export_as_json_with_v1_api_on_v2():
     obj = Something(id=1)
 
-    assert obj.json() == '{"id":1}'
-    assert obj.json(exclude_unchanged=True) == '{}'
+    with pytest.warns(DeprecationWarning):
+        assert obj.json() == '{"id":1}'
+    with pytest.warns(DeprecationWarning):
+        assert obj.json(exclude_unchanged=True) == '{}'
 
     obj.id = 2
 
-    assert obj.json(exclude_unchanged=True) == '{"id":2}'
+    with pytest.warns(DeprecationWarning):
+        assert obj.json(exclude_unchanged=True) == '{"id":2}'
 
 
 @pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does have a slightly different result")
@@ -192,7 +214,22 @@ def test_export_include_is_intersect():
     assert something.model_dump(exclude_unchanged=True, include={'id'}) == {"id": 2}
 
 
-# Test on pydantic v2, too - pydantic has a compatibility layer for this
+@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
+def test_export_include_is_intersect_with_v1_api_on_v2():
+    something = Something(id=1)
+
+    with pytest.warns(DeprecationWarning):
+        assert something.dict(exclude_unchanged=True, include={'name'}) == {}
+
+    something.id = 2
+
+    with pytest.warns(DeprecationWarning):
+        assert something.dict(exclude_unchanged=True, include=set()) == {}
+    with pytest.warns(DeprecationWarning):
+        assert something.dict(exclude_unchanged=True, include={'id'}) == {"id": 2}
+
+
+@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
 def test_export_include_is_intersect_with_v1_api():
     something = Something(id=1)
 
@@ -216,7 +253,21 @@ def test_changed_base_is_resetable():
     assert something.model_dump(exclude_unchanged=True) == {}
 
 
-# Test on pydantic v2, too - pydantic has a compatibility layer for this
+@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
+def test_changed_base_is_resetable_with_v1_api_on_v2():
+    something = Something(id=1)
+    something.id = 2
+
+    with pytest.warns(DeprecationWarning):
+        assert something.dict(exclude_unchanged=True) == {"id": 2}
+
+    something.model_reset_changed()
+
+    with pytest.warns(DeprecationWarning):
+        assert something.dict(exclude_unchanged=True) == {}
+
+
+@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
 def test_changed_base_is_resetable_with_v1_api():
     something = Something(id=1)
     something.id = 2
@@ -231,13 +282,13 @@ def test_changed_base_is_resetable_with_v1_api():
 def test_pickle_keeps_state():
     obj = Something(id=1)
 
-    assert not pickle.loads(pickle.dumps(obj)).has_changed
-    assert pickle.loads(pickle.dumps(obj)).__changed_fields__ == set()
+    assert not pickle.loads(pickle.dumps(obj)).model_has_changed
+    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == set()
 
     obj.id = 2
 
-    assert pickle.loads(pickle.dumps(obj)).has_changed
-    assert pickle.loads(pickle.dumps(obj)).__changed_fields__ == {"id"}
+    assert pickle.loads(pickle.dumps(obj)).model_has_changed
+    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == {"id"}
 
 
 def test_pickle_even_works_when_changed_state_is_missing():
@@ -245,8 +296,8 @@ def test_pickle_even_works_when_changed_state_is_missing():
     obj.id = 2
 
     # Now we cannot use the changed state, but nothing fails
-    assert not pickle.loads(pickle.dumps(obj)).has_changed
-    assert pickle.loads(pickle.dumps(obj)).__changed_fields__ == set()
+    assert not pickle.loads(pickle.dumps(obj)).model_has_changed
+    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == set()
 
 
 def test_stores_original():
@@ -346,6 +397,30 @@ def test_use_private_attributes_works():
     assert something.model_has_changed is False
 
 
+@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_construct()")
+def test_model_construct_works():
+    something = Something.model_construct(id=1)
+
+    assert something.model_has_changed is False
+
+    something.id = 2
+
+    assert something.model_has_changed is True
+
+
+@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
+def test_construct_works():
+    with pytest.warns(DeprecationWarning):
+        something = Something.construct(id=1)
+
+    assert something.model_has_changed is False
+
+    something.id = 2
+
+    assert something.model_has_changed is True
+
+
+@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
 def test_construct_works():
     something = Something.construct(id=1)
 
@@ -359,32 +434,54 @@ def test_construct_works():
 def test_compatibility_methods_work():
     something = Something(id=1)
 
-    assert something.has_changed is False
-    assert not something.__self_changed_fields__
-    assert not something.__changed_fields__
-    assert not something.__changed_fields_recursive__
-    assert something.__original__ == {}
+    with pytest.warns(DeprecationWarning):
+        assert something.has_changed is False
+    with pytest.warns(DeprecationWarning):
+        assert not something.__self_changed_fields__
+    with pytest.warns(DeprecationWarning):
+        assert not something.__changed_fields__
+    with pytest.warns(DeprecationWarning):
+        assert not something.__changed_fields_recursive__
+    with pytest.warns(DeprecationWarning):
+        assert something.__original__ == {}
 
     something.id = 2
 
-    assert something.has_changed is True
-    assert something.__self_changed_fields__ == {"id"}
-    assert something.__changed_fields__ == {"id"}
-    assert something.__changed_fields_recursive__ == {"id"}
-    assert something.__original__ == {"id": 1}
+    with pytest.warns(DeprecationWarning):
+        assert something.has_changed is True
+    with pytest.warns(DeprecationWarning):
+        assert something.__self_changed_fields__ == {"id"}
+    with pytest.warns(DeprecationWarning):
+        assert something.__changed_fields__ == {"id"}
+    with pytest.warns(DeprecationWarning):
+        assert something.__changed_fields_recursive__ == {"id"}
+    with pytest.warns(DeprecationWarning):
+        assert something.__original__ == {"id": 1}
 
-    something.reset_changed()
+    with pytest.warns(DeprecationWarning):
+        something.reset_changed()
 
-    assert something.has_changed is False
-    assert not something.__self_changed_fields__
-    assert not something.__changed_fields__
-    assert not something.__changed_fields_recursive__
-    assert something.__original__ == {}
+    with pytest.warns(DeprecationWarning):
+        assert something.has_changed is False
+    with pytest.warns(DeprecationWarning):
+        assert not something.__self_changed_fields__
+    with pytest.warns(DeprecationWarning):
+        assert not something.__changed_fields__
+    with pytest.warns(DeprecationWarning):
+        assert not something.__changed_fields_recursive__
+    with pytest.warns(DeprecationWarning):
+        assert something.__original__ == {}
 
-    something.set_changed("id", original=1)
+    with pytest.warns(DeprecationWarning):
+        something.set_changed("id", original=1)
 
-    assert something.has_changed is True
-    assert something.__self_changed_fields__ == {"id"}
-    assert something.__changed_fields__ == {"id"}
-    assert something.__changed_fields_recursive__ == {"id"}
-    assert something.__original__ == {"id": 1}
+    with pytest.warns(DeprecationWarning):
+        assert something.has_changed is True
+    with pytest.warns(DeprecationWarning):
+        assert something.__self_changed_fields__ == {"id"}
+    with pytest.warns(DeprecationWarning):
+        assert something.__changed_fields__ == {"id"}
+    with pytest.warns(DeprecationWarning):
+        assert something.__changed_fields_recursive__ == {"id"}
+    with pytest.warns(DeprecationWarning):
+        assert something.__original__ == {"id": 1}
