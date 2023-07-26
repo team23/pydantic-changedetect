@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic-changedetect"
-version = "0.5.0"
+version = "0.5.1"
 description = "Extend pydantic models to also detect and record changes made to the model attributes."
 authors = ["TEAM23 GmbH <info@team23.de>"]
 license = "MIT"
