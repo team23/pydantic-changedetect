@@ -16,23 +16,25 @@ to any pydantic models. Changes will be detected and stored after the model
 was constructed.
 
 Using the `ChangeDetectionMixin` the pydantic models are extended, so:
-* `obj.__changed_fields__` contains a list of all changed fields
-  - `obj.__self_changed_fields__` contains a list of all changed fields for the
+* `obj.model_changed_fields` contains a list of all changed fields
+  - `obj.model_self_changed_fields` contains a list of all changed fields for the
     current object, ignoring all nested models.
-  - `obj.__changed_fields_recursive__` contains a list of all changed fields and
+  - `obj.model_changed_fields_recursive` contains a list of all changed fields and
     also include the named of the fields changed in nested models using a
     dotted field name syntax (like `nested.field`).
-* `obj.__original__` will include the original values of all changed fields in
+* `obj.model_original` will include the original values of all changed fields in
   a dict.
-* `obj.has_changed()` returns True if any field has changed.
-* `obj.set_changed()` manually sets fields as changed.
-  - `obj.set_changed("field_a", "field_b")` will set multiple fields as changed.
-  - `obj.set_changed("field_a", original="old")` will set a single field as
+* `obj.model_has_changed` returns True if any field has changed.
+* `obj.model_set_changed()` manually sets fields as changed.
+  - `obj.model_set_changed("field_a", "field_b")` will set multiple fields as changed.
+  - `obj.model_set_changed("field_a", original="old")` will set a single field as
     changed and also store its original value.
-* `obj.reset_changed()` resets all changed fields.
-* `obj.dict()` and `obj.json()` accept an additional parameter
+* `obj.model_reset_changed()` resets all changed fields.
+* `obj.model_dump()` and `obj.model_dump_json()` accept an additional parameter
   `exclude_unchanged`, which - when set to True - will only export the
-  changed fields
+  changed fields.  
+  **Note:** When using pydantic 1.x you need to use `obj.dict()` and `obj.json()`. Both
+  also accept `exclude_unchanged`.
 
 ### Example
 
@@ -45,19 +47,19 @@ class Something(ChangeDetectionMixin, pydantic.BaseModel):
 
 
 something = Something(name="something")
-something.has_changed  # = False
-something.__changed_fields__  # = set()
+something.model_has_changed  # = False
+something.model_changed_fields  # = set()
 something.name = "something else"
-something.has_changed  # = True
-something.__changed_fields__  # = {"name"}
+something.model_has_changed  # = True
+something.model_changed_fields  # = {"name"}
 ```
 
 ### Restrictions
 
 `ChangeDetectionMixin` currently cannot detect changes inside lists, dicts and
 other structured objects. In those cases you are required to set the changed
-state yourself using `set_changed()`. It is recommended to pass the original
-value to `set_changed()` when you want to also keep track of the actual changes
+state yourself using `model_set_changed()`. It is recommended to pass the original
+value to `model_set_changed()` when you want to also keep track of the actual changes
 compared to the original value. Be advised to `.copy()` the original value
 as lists/dicts will always be changed in place.
 
