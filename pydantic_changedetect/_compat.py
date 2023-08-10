@@ -8,7 +8,7 @@ PYDANTIC_V1 = PYDANTIC_VERSION.startswith("1.")
 PYDANTIC_V2 = PYDANTIC_VERSION.startswith("2.")
 
 if PYDANTIC_V1:  # pragma: no cover
-    class PydanticCompat:  # noqa: F811
+    class PydanticCompat:
         obj: pydantic.BaseModel
 
         def __init__(

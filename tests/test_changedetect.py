@@ -282,13 +282,13 @@ def test_changed_base_is_resetable_with_v1_api():
 def test_pickle_keeps_state():
     obj = Something(id=1)
 
-    assert not pickle.loads(pickle.dumps(obj)).model_has_changed
-    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == set()
+    assert not pickle.loads(pickle.dumps(obj)).model_has_changed  # noqa: S301
+    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == set()  # noqa: S301
 
     obj.id = 2
 
-    assert pickle.loads(pickle.dumps(obj)).model_has_changed
-    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == {"id"}
+    assert pickle.loads(pickle.dumps(obj)).model_has_changed  # noqa: S301
+    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == {"id"}  # noqa: S301
 
 
 def test_pickle_even_works_when_changed_state_is_missing():
@@ -296,8 +296,8 @@ def test_pickle_even_works_when_changed_state_is_missing():
     obj.id = 2
 
     # Now we cannot use the changed state, but nothing fails
-    assert not pickle.loads(pickle.dumps(obj)).model_has_changed
-    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == set()
+    assert not pickle.loads(pickle.dumps(obj)).model_has_changed  # noqa: S301
+    assert pickle.loads(pickle.dumps(obj)).model_changed_fields == set()  # noqa: S301
 
 
 def test_stores_original():
@@ -330,7 +330,7 @@ def test_nested_changed_state():
 
 
 @pytest.mark.parametrize(
-    "parent_class, list_type", [
+    ("parent_class", "list_type"), [
         (NestedList, list),
         (NestedTuple, tuple),
     ],
@@ -409,7 +409,7 @@ def test_model_construct_works():
 
 
 @pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
-def test_construct_works():
+def test_construct_works_on_v2():
     with pytest.warns(DeprecationWarning):
         something = Something.construct(id=1)
 
@@ -421,7 +421,7 @@ def test_construct_works():
 
 
 @pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
-def test_construct_works():
+def test_construct_works_on_v1():
     something = Something.construct(id=1)
 
     assert something.model_has_changed is False

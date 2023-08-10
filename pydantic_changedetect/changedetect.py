@@ -354,6 +354,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
             return super().model_dump_json(
                 **self._get_changed_export_includes(
+                    indent=indent,
                     include=include,
                     exclude=exclude,
                     by_alias=by_alias,
@@ -373,12 +374,13 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         *,
         include: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
         exclude: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
-        update: Optional[Dict[str, Any]] = None,  # noqa UP006
+        update: Optional[Dict[str, Any]] = None,
         deep: bool = False,
     ) -> "Model":
         warnings.warn(
             "copy(...) is deprecated even in pydantic v2, use model_copy(...) instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         clone = cast(
             "Model",
@@ -559,6 +561,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         warnings.warn(
             "reset_changed() is deprecated, use model_reset_changed() instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         self.model_reset_changed()
 
@@ -567,6 +570,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         warnings.warn(
             "__original__ is deprecated, use model_original instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.model_original
 
@@ -575,6 +579,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         warnings.warn(
             "__self_changed_fields__ is deprecated, use model_self_changed_fields instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.model_self_changed_fields
 
@@ -583,6 +588,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         warnings.warn(
             "__changed_fields__ is deprecated, use model_changed_fields instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.model_changed_fields
 
@@ -591,6 +597,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         warnings.warn(
             "__changed_fields_recursive__ is deprecated, use model_changed_fields_recursive instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.model_changed_fields_recursive
 
@@ -599,6 +606,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         warnings.warn(
             "has_changed is deprecated, use model_has_changed instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         return self.model_has_changed
 
@@ -612,5 +620,6 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         warnings.warn(
             "set_changed(...) is deprecated, use model_set_changed(...) instead",
             DeprecationWarning,
+            stacklevel=2,
         )
         self.model_set_changed(*fields, original=original)

@@ -26,6 +26,7 @@ def safe_issubclass(cls: Any, type_: Any) -> bool:
     warnings.warn(
         "safe_issubclass() is deprecated and will be removed",
         DeprecationWarning,
+        stacklevel=2,
     )
 
     if not isinstance(cls, type):
