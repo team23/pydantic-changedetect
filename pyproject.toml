@@ -16,13 +16,14 @@ pytest = ">=7.1.2,<8.0.0"
 pytest-cov = ">=3,<5"
 mypy = ">=0.971,<2.0"
 tox = ">=3.26,<5.0"
-ruff = ">=0.0.284,<0.1.0"
+ruff = ">=0.0.284,<0.2.0"
 
 [tool.ruff]
 select = ["F","E","W","C","I","N","UP","ANN","S","B","A","COM","C4","T20","PT","ARG","TD","RUF"]
 line-length = 115
 target-version = "py38"
 ignore = ["A001","A002","A003","ANN101","ANN102","ANN401","C901","N8","B008","F405","F821"]
+output-format = "grouped"
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
