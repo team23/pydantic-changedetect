@@ -221,7 +221,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         if name in self_compat.model_fields and name not in self.model_original:
             self.model_original[name] = self.__dict__[name]
         super().__setattr__(name, value)
-        self.model_self_changed_fields.add(name)
+        if self.model_original[name] != value:
+            self.model_self_changed_fields.add(name)
 
     def __getstate__(self) -> Dict[str, Any]:
         state = super().__getstate__()

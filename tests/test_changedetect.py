@@ -70,6 +70,14 @@ def test_set_changed_state():
     assert obj.model_changed_fields == {"id"}
 
 
+def test_values_did_not_change():
+    obj = Something(id=1)
+    assert not obj.model_has_changed
+    obj.id = 1
+    assert not obj.model_has_changed
+    assert obj.model_changed_fields == set()
+
+
 def test_set_changed_state_with_fixed_original():
     obj = Something(id=1)
 
