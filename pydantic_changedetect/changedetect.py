@@ -206,7 +206,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 self.model_original[name] = original
             self.model_self_changed_fields.add(name)
 
-    def _model_is_change_comparable_type(self, value: Any) -> bool:
+    def _model_value_is_comparable_type(self, value: Any) -> bool:
         return (
             value is None
             or isinstance(value, (str, int, float, bool, decimal.Decimal))
@@ -241,8 +241,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             # (when validate_assignment == True)
             current_value = self.__dict__[name]
             if (
-                self._model_is_change_comparable_type(original_value)
-                and self._model_is_change_comparable_type(current_value)
+                self._model_value_is_comparable_type(original_value)
+                and self._model_value_is_comparable_type(current_value)
                 and original_value == current_value
             ):
                 has_changed = False
