@@ -1,3 +1,4 @@
+import decimal
 import pickle
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -40,6 +41,15 @@ class SomethingWithBrokenPickleState(Something):
     def __getstate__(self) -> Dict[str, Any]:
         # Skip adding changed state in ChangedDetectionMixin.__getstate__
         return super(ChangeDetectionMixin, self).__getstate__()
+
+
+class SomethingWithDifferentValueTypes(ChangeDetectionMixin, pydantic.BaseModel):
+    s: Union[str, None] = None
+    i: Union[int, None] = None
+    f: Union[float, None] = None
+    b: Union[bool, None] = None
+    d: Union[decimal.Decimal, None] = None
+    m: Union[Something, None] = None
 
 
 def test_initial_state():
@@ -395,6 +405,35 @@ def test_use_private_attributes_works():
     something._private = 1
 
     assert something.model_has_changed is False
+
+
+@pytest.mark.parametrize(
+    ("attr", "original", "changed", "expected"),
+    [
+        ("s", "old", "new", True),
+        ("s", "old", "old", False),
+        ("i", 1, 2, True),
+        ("i", 1, 1, False),
+        ("f", 1.0, 2.0, True),
+        ("f", 1.0, 1.0, False),
+        ("b", True, False, True),
+        ("b", True, True, False),
+        ("d", decimal.Decimal(1), decimal.Decimal(2), True),
+        ("d", decimal.Decimal(1), decimal.Decimal(1), False),
+        ("m", Something(id=1), Something(id=2), True),
+        ("m", Something(id=1), Something(id=1), True),  # models will always be counted as changed
+    ],
+)
+def test_value_types_checked_for_equality(
+    attr: str,
+    original: Any,
+    changed: Any,
+    expected: bool,
+):
+    obj = SomethingWithDifferentValueTypes(**{attr: original})
+    setattr(obj, attr, changed)
+
+    assert obj.model_has_changed is expected
 
 
 @pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_construct()")

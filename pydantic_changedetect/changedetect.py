@@ -1,3 +1,4 @@
+import decimal
 import warnings
 from typing import (
     TYPE_CHECKING,
@@ -205,6 +206,12 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 self.model_original[name] = original
             self.model_self_changed_fields.add(name)
 
+    def _model_is_change_comparable_type(self, value: Any) -> bool:
+        return (
+            value is None
+            or isinstance(value, (str, int, float, bool, decimal.Decimal))
+        )
+
     @no_type_check
     def __setattr__(self, name, value) -> None:  # noqa: ANN001
         self_compat = PydanticCompat(self)
@@ -217,11 +224,33 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             super().__setattr__(name, value)
             return
 
-        # Store changed data
+        # Get original value
+        original_update = {}
         if name in self_compat.model_fields and name not in self.model_original:
-            self.model_original[name] = self.__dict__[name]
+            original_update[name] = self.__dict__[name]
+
+        # Store changed value using pydantic
         super().__setattr__(name, value)
-        self.model_self_changed_fields.add(name)
+
+        # Check if value has actually been changed
+        has_changed = True
+        if name in self_compat.model_fields:
+            # Fetch original from original_update so we don't have to check everything again
+            original_value = original_update.get(name, None)
+            # Don't use value parameter directly, as pydantic validation might have changed it
+            # (when validate_assignment == True)
+            current_value = self.__dict__[name]
+            if (
+                self._model_is_change_comparable_type(original_value)
+                and self._model_is_change_comparable_type(current_value)
+                and original_value == current_value
+            ):
+                has_changed = False
+
+        # Store changed state
+        if has_changed:
+            self.model_original.update(original_update)
+            self.model_self_changed_fields.add(name)
 
     def __getstate__(self) -> Dict[str, Any]:
         state = super().__getstate__()
