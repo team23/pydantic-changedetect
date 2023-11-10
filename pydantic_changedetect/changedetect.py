@@ -54,6 +54,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     if TYPE_CHECKING:  # pragma: no cover
         model_original: Dict[str, Any]
         model_self_changed_fields: Set[str]
+        model_changed_markers: set[str]
 
     __slots__ = ("model_original", "model_self_changed_fields")
 
@@ -68,6 +69,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         object.__setattr__(self, "model_original", {})
         object.__setattr__(self, "model_self_changed_fields", set())
+        object.__setattr__(self, "model_changed_markers", set())
 
     @property
     def model_changed_fields(self) -> Set[str]:
@@ -163,9 +165,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     @property
     def model_has_changed(self) -> bool:
-        """Return True, when some field was changed"""
+        """Return True, when some field was changed or changed marker is set."""
 
-        if self.model_self_changed_fields:
+        if self.model_self_changed_fields or self.model_changed_markers:
             return True
 
         return bool(self.model_changed_fields)
@@ -227,6 +229,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         state = super().__getstate__()
         state["model_original"] = self.model_original.copy()
         state["model_self_changed_fields"] = self.model_self_changed_fields.copy()
+        state["model_changed_markers"] = self.model_changed_markers.copy()
         return state
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
@@ -239,6 +242,10 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             object.__setattr__(self, "model_self_changed_fields", state["model_self_changed_fields"])
         else:
             object.__setattr__(self, "model_self_changed_fields", set())
+        if "model_changed_markers" in state:
+            object.__setattr__(self, "model_changed_markers", state["model_changed_markers"])
+        else:
+            object.__setattr__(self, "model_changed_markers", set())
 
     def _get_changed_export_includes(
         self,
@@ -262,6 +269,32 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             else:
                 kwargs["include"] = set(changed_fields)
         return kwargs
+
+    # Changed markers
+
+    def model_mark_changed(self, marker: str) -> None:
+        """
+        Add marker for something being changed.
+
+        Markers can be used to keep information about things being changed outside
+        the model scope, but related to the model itself. This could for example
+        be a marker for related objects being added/updated/removed.
+        """
+
+        self.model_changed_markers.add(marker)
+
+    def unmark_changed(self, marker: str) -> None:
+        """Remove one changed marker."""
+
+        self.model_changed_markers.discard(marker)
+
+    def has_changed_marker(
+        self,
+        marker: str,
+    ) -> bool:
+        """Check whether one changed marker is set."""
+
+        return marker in self.model_changed_markers
 
     # pydantic 2.0 only methods
 
@@ -293,6 +326,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             )
             object.__setattr__(clone, "model_original", self.model_original.copy())
             object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
             return clone
 
         def model_dump(
@@ -393,6 +427,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         )
         object.__setattr__(clone, "model_original", self.model_original.copy())
         object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+        object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
         return clone
 
     if PYDANTIC_V2:
@@ -488,6 +523,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             )
             object.__setattr__(clone, "model_original", self.model_original.copy())
             object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
             return clone
 
         def dict(  # type: ignore[misc]
