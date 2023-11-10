@@ -283,12 +283,12 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         self.model_changed_markers.add(marker)
 
-    def unmark_changed(self, marker: str) -> None:
+    def model_unmark_changed(self, marker: str) -> None:
         """Remove one changed marker."""
 
         self.model_changed_markers.discard(marker)
 
-    def has_changed_marker(
+    def model_has_changed_marker(
         self,
         marker: str,
     ) -> bool:
