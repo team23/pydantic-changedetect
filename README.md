@@ -54,7 +54,14 @@ something.model_has_changed  # = True
 something.model_changed_fields  # = {"name"}
 ```
 
-### Restrictions
+### When will a change be detected
+
+`pydantic-changedetect` will see changes when an attribute value is changes using an
+attribute assignment like `something.name = "something else"` in the example above. Such
+an assignment will be seen as a change unless the new value is the same and the type of
+the value is `None` or of type `str`, `int`, `float`, `bool` or `decimal.Decimal`.
+
+#### Restrictions
 
 `ChangeDetectionMixin` currently cannot detect changes inside lists, dicts and
 other structured objects. In those cases you are required to set the changed
@@ -62,6 +69,23 @@ state yourself using `model_set_changed()`. It is recommended to pass the origin
 value to `model_set_changed()` when you want to also keep track of the actual changes
 compared to the original value. Be advised to `.copy()` the original value
 as lists/dicts will always be changed in place.
+
+Example:
+```python
+import pydantic
+from pydantic_changedetect import ChangeDetectionMixin
+
+class TodoList(ChangeDetectionMixin, pydantic.BaseModel):
+    items: list[str]
+
+
+todos = TodoList(items=["release new version"])
+original_items = todos.items.copy()
+todos.items.append("create better docs")  # This change will NOT be seen yet
+todos.model_has_changed  # = False
+todos.model_set_changed("items", original=original_items)  # Mark field as changed
+todos.model_has_changed  # = False
+```
 
 # Contributing
 
