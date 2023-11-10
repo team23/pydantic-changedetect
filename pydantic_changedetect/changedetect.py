@@ -298,7 +298,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             return value
 
     def model_restore_original(
-        self,
+        self: "Model",
     ) -> "Model":
         """Restore original state of a ChangeDetectionMixin object."""
 
