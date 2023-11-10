@@ -64,7 +64,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     def model_reset_changed(self) -> None:
         """
-        Reset the changed state, this will clear model_self_changed_fields and model_original
+        Reset the changed state, this will clear model_self_changed_fields, model_original
+        and remove all changed markers.
         """
 
         object.__setattr__(self, "model_original", {})
@@ -165,7 +166,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     @property
     def model_has_changed(self) -> bool:
-        """Return True, when some field was changed or changed marker is set."""
+        """Return True, when some field was changed or some changed marker is set."""
 
         if self.model_self_changed_fields or self.model_changed_markers:
             return True
