@@ -35,6 +35,11 @@ Using the `ChangeDetectionMixin` the pydantic models are extended, so:
   changed fields.  
   **Note:** When using pydantic 1.x you need to use `obj.dict()` and `obj.json()`. Both
   also accept `exclude_unchanged`.
+* `obj.model_restore_original()` will create a new instance of the model containing its
+  original state.
+* `obj.model_get_original_field_value("field_name")` will return the original value for
+  just one field. It will call `model_restore_original()` on the current field value if
+  the field is set to a `ChangeDetectionMixin` instance (or list/dict of those).
 
 ### Example
 
@@ -52,6 +57,10 @@ something.model_changed_fields  # = set()
 something.name = "something else"
 something.model_has_changed  # = True
 something.model_changed_fields  # = {"name"}
+
+original = something.model_restore_original()
+original.name  # = "something"
+original.model_has_changed  # = False
 ```
 
 ### Restrictions
