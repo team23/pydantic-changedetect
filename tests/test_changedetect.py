@@ -487,7 +487,7 @@ def test_compatibility_methods_work():
         assert something.__original__ == {"id": 1}
 
 
-# Model restore
+# Restore model/value state
 
 
 def test_restore_original():
@@ -581,3 +581,54 @@ def test_restore_field_value_nested():
     nested.sub.id = 2
     assert nested.model_has_changed is True
     assert nested.model_get_original_field_value("sub") == Something(id=1)
+
+
+# Changed markers
+
+
+def test_changed_markers_can_be_set():
+    something = Something(id=1)
+
+    something.model_mark_changed("test")
+    assert "test" in something.model_changed_markers
+    assert something.model_has_changed_marker("test")
+
+
+def test_changed_markers_can_be_unset():
+    something = Something(id=1)
+
+    something.model_mark_changed("test")
+    assert something.model_has_changed_marker("test")
+
+    something.model_unmark_changed("test")
+    assert not something.model_has_changed_marker("test")
+
+
+def test_changed_markers_will_be_also_reset():
+    something = Something(id=1)
+
+    something.model_mark_changed("test")
+    assert something.model_has_changed_marker("test")
+
+    something.model_reset_changed()
+    assert not something.model_has_changed_marker("test")
+
+
+def test_model_is_changed_if_marker_or_change_exists():
+    something = Something(id=1)
+
+    assert not something.model_has_changed
+    something.model_mark_changed("test")
+    assert something.model_has_changed
+    something.model_reset_changed()
+
+    assert not something.model_has_changed
+    something.model_set_changed("id")
+    assert something.model_has_changed
+    something.model_reset_changed()
+
+    assert not something.model_has_changed
+    something.model_set_changed("id")
+    something.model_mark_changed("test")
+    assert something.model_has_changed
+    something.model_reset_changed()

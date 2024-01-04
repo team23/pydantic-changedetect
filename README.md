@@ -40,6 +40,10 @@ Using the `ChangeDetectionMixin` the pydantic models are extended, so:
 * `obj.model_get_original_field_value("field_name")` will return the original value for
   just one field. It will call `model_restore_original()` on the current field value if
   the field is set to a `ChangeDetectionMixin` instance (or list/dict of those).
+* `obj.model_mark_changed("marker_name")` and `obj.model_unmark_changed("marker_name")`
+  allow to add arbitrary change markers. An instance with a marker will be seen as changed
+  (`obj.model_has_changed == True`). Markers are stored in `obj.model_changed_markers`
+  as a set.
 
 ### Example
 
@@ -71,6 +75,31 @@ state yourself using `model_set_changed()`. It is recommended to pass the origin
 value to `model_set_changed()` when you want to also keep track of the actual changes
 compared to the original value. Be advised to `.copy()` the original value
 as lists/dicts will always be changed in place.
+
+### Changed markers
+
+You may also just mark the model as changed. This can be done using changed markers.
+A change marker is just a string that is added as the marker, models with such an marker
+will also be seen as changed. Changed markers also allow to mark models as changed when
+related data was changed - for example to also update a parent object in the database
+when some children were changed.
+
+```python
+import pydantic
+from pydantic_changedetect import ChangeDetectionMixin
+
+class Something(ChangeDetectionMixin, pydantic.BaseModel):
+    name: str
+
+
+something = Something(name="something")
+something.model_has_changed  # = False
+something.model_mark_changed("mood")
+something.model_has_changed  # = True
+something.model_changed_markers  # {"mood"}
+something.model_unmark_changed("mood")  # also will be reset on something.model_reset_changed()
+something.model_has_changed  # = False
+```
 
 # Contributing
 
