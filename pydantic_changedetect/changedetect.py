@@ -101,8 +101,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                     field_value_list = field_value
                 elif isinstance(field_value, dict):
                     field_value_list = list(field_value.values())
-                else:
+                else:  # pragma: no cover
                     # Continue on unsupported type
+                    # (should be already filtered by is_pydantic_change_detect_annotation)
                     continue
 
                 # Check if any of the values has changed
@@ -147,8 +148,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                     field_value_list = list(enumerate(field_value))
                 elif isinstance(field_value, dict):
                     field_value_list = list(field_value.items())
-                else:
+                else:  # pragma: no cover
                     # Continue on unsupported type
+                    # (should be already filtered by is_pydantic_change_detect_annotation)
                     continue
 
                 # Check if any of the values has changed
@@ -270,6 +272,70 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             else:
                 kwargs["include"] = set(changed_fields)
         return kwargs
+
+    # Restore model/value state
+
+    @classmethod
+    def model_restore_value(cls, value: Any, /) -> Any:
+        """
+        Restore original state of value if it contains any ChangeDetectionMixin
+        instances.
+
+        Contain might be:
+        * value is a list containing such instances
+        * value is a dict containing such instances
+        * value is a ChangeDetectionMixin instance itself
+        """
+
+        if isinstance(value, list):
+            return [
+                cls.model_restore_value(v)
+                for v
+                in value
+            ]
+        elif isinstance(value, dict):
+            return {
+                k: cls.model_restore_value(v)
+                for k, v
+                in value.items()
+            }
+        elif (
+            isinstance(value, ChangeDetectionMixin)
+            and value.model_has_changed
+        ):
+            return value.model_restore_original()
+        else:
+            return value
+
+    def model_restore_original(
+        self: "Model",
+    ) -> "Model":
+        """Restore original state of a ChangeDetectionMixin object."""
+
+        restored_values = {}
+        for key, value in self.__dict__.items():
+            restored_values[key] = self.model_restore_value(value)
+
+        return self.__class__(
+            **{
+                **restored_values,
+                **self.model_original,
+            },
+        )
+
+    def model_get_original_field_value(self, field_name: str, /) -> Any:
+        """Return original value for a field."""
+
+        self_compat = PydanticCompat(self)
+
+        if field_name not in self_compat.model_fields:
+            raise AttributeError(f"Field {field_name} not available in this model")
+
+        if field_name in self.model_original:
+            return self.model_original[field_name]
+
+        current_value = getattr(self, field_name)
+        return self.model_restore_value(current_value)
 
     # Changed markers
 
