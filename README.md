@@ -35,6 +35,15 @@ Using the `ChangeDetectionMixin` the pydantic models are extended, so:
   changed fields.  
   **Note:** When using pydantic 1.x you need to use `obj.dict()` and `obj.json()`. Both
   also accept `exclude_unchanged`.
+* `obj.model_restore_original()` will create a new instance of the model containing its
+  original state.
+* `obj.model_get_original_field_value("field_name")` will return the original value for
+  just one field. It will call `model_restore_original()` on the current field value if
+  the field is set to a `ChangeDetectionMixin` instance (or list/dict of those).
+* `obj.model_mark_changed("marker_name")` and `obj.model_unmark_changed("marker_name")`
+  allow to add arbitrary change markers. An instance with a marker will be seen as changed
+  (`obj.model_has_changed == True`). Markers are stored in `obj.model_changed_markers`
+  as a set.
 
 ### Example
 
@@ -52,6 +61,10 @@ something.model_changed_fields  # = set()
 something.name = "something else"
 something.model_has_changed  # = True
 something.model_changed_fields  # = {"name"}
+
+original = something.model_restore_original()
+original.name  # = "something"
+original.model_has_changed  # = False
 ```
 
 ### When will a change be detected
@@ -70,7 +83,6 @@ value to `model_set_changed()` when you want to also keep track of the actual ch
 compared to the original value. Be advised to `.copy()` the original value
 as lists/dicts will always be changed in place.
 
-Example:
 ```python
 import pydantic
 from pydantic_changedetect import ChangeDetectionMixin
@@ -83,8 +95,33 @@ todos = TodoList(items=["release new version"])
 original_items = todos.items.copy()
 todos.items.append("create better docs")  # This change will NOT be seen yet
 todos.model_has_changed  # = False
-todos.model_set_changed("items", original=original_items)  # Mark field as changed
-todos.model_has_changed  # = False
+todos.model_set_changed("items", original=original_items)  # Mark field as changed and store original value
+todos.model_has_changed  # = True
+```
+
+### Changed markers
+
+You may also just mark the model as changed. This can be done using changed markers.
+A change marker is just a string that is added as the marker, models with such an marker
+will also be seen as changed. Changed markers also allow to mark models as changed when
+related data was changed - for example to also update a parent object in the database
+when some children were changed.
+
+```python
+import pydantic
+from pydantic_changedetect import ChangeDetectionMixin
+
+class Something(ChangeDetectionMixin, pydantic.BaseModel):
+  name: str
+
+
+something = Something(name="something")
+something.model_has_changed  # = False
+something.model_mark_changed("mood")
+something.model_has_changed  # = True
+something.model_changed_markers  # {"mood"}
+something.model_unmark_changed("mood")  # also will be reset on something.model_reset_changed()
+something.model_has_changed  # = False
 ```
 
 # Contributing

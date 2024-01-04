@@ -524,3 +524,150 @@ def test_compatibility_methods_work():
         assert something.__changed_fields_recursive__ == {"id"}
     with pytest.warns(DeprecationWarning):
         assert something.__original__ == {"id": 1}
+
+
+# Restore model/value state
+
+
+def test_restore_original():
+    something = Something(id=1)
+
+    something.id = 2
+    assert something.model_has_changed is True
+
+    old_something = something.model_restore_original()
+
+    assert something is not old_something
+    assert something.id == 2
+    assert old_something.id == 1
+
+
+def test_restore_original_nested():
+    something = Something(id=1)
+    nested = Nested(sub=something)
+
+    nested.sub.id = 2
+    assert nested.sub.model_has_changed is True
+    assert nested.model_has_changed is True
+
+    old_nested = nested.model_restore_original()
+
+    assert nested.sub.id == 2
+    assert old_nested.sub.id == 1
+
+
+def test_restore_original_nested_assignment():
+    something = Something(id=1)
+    nested = Nested(sub=something)
+
+    nested.sub = Something(id=2)
+    assert nested.sub.model_has_changed is False
+    assert nested.model_has_changed is True
+
+    old_nested = nested.model_restore_original()
+
+    assert nested.sub.id == 2
+    assert old_nested.sub.id == 1
+
+
+def test_restore_original_nested_list():
+    something = Something(id=1)
+    nested = NestedList(sub=[something])
+
+    nested.sub[0].id = 2
+    assert nested.sub[0].model_has_changed is True
+    assert nested.model_has_changed is True
+
+    old_nested = nested.model_restore_original()
+
+    assert nested.sub[0].id == 2
+    assert old_nested.sub[0].id == 1
+
+
+def test_restore_original_nested_dict():
+    something = Something(id=1)
+    nested = NestedDict(sub={"test": something})
+
+    nested.sub["test"].id = 2
+    assert nested.sub["test"].model_has_changed is True
+    assert nested.model_has_changed is True
+
+    old_nested = nested.model_restore_original()
+
+    assert nested.sub["test"].id == 2
+    assert old_nested.sub["test"].id == 1
+
+
+def test_restore_field_value():
+    something = Something(id=1)
+
+    something.id = 2
+    assert something.model_has_changed is True
+    assert something.model_get_original_field_value("id") == 1
+
+
+def test_restore_field_value_checks_field_availability():
+    something = Something(id=1)
+
+    with pytest.raises(AttributeError):
+        something.model_get_original_field_value("invalid_field")
+
+
+def test_restore_field_value_nested():
+    something = Something(id=1)
+    nested = Nested(sub=something)
+
+    nested.sub.id = 2
+    assert nested.model_has_changed is True
+    assert nested.model_get_original_field_value("sub") == Something(id=1)
+
+
+# Changed markers
+
+
+def test_changed_markers_can_be_set():
+    something = Something(id=1)
+
+    something.model_mark_changed("test")
+    assert "test" in something.model_changed_markers
+    assert something.model_has_changed_marker("test")
+
+
+def test_changed_markers_can_be_unset():
+    something = Something(id=1)
+
+    something.model_mark_changed("test")
+    assert something.model_has_changed_marker("test")
+
+    something.model_unmark_changed("test")
+    assert not something.model_has_changed_marker("test")
+
+
+def test_changed_markers_will_be_also_reset():
+    something = Something(id=1)
+
+    something.model_mark_changed("test")
+    assert something.model_has_changed_marker("test")
+
+    something.model_reset_changed()
+    assert not something.model_has_changed_marker("test")
+
+
+def test_model_is_changed_if_marker_or_change_exists():
+    something = Something(id=1)
+
+    assert not something.model_has_changed
+    something.model_mark_changed("test")
+    assert something.model_has_changed
+    something.model_reset_changed()
+
+    assert not something.model_has_changed
+    something.model_set_changed("id")
+    assert something.model_has_changed
+    something.model_reset_changed()
+
+    assert not something.model_has_changed
+    something.model_set_changed("id")
+    something.model_mark_changed("test")
+    assert something.model_has_changed
+    something.model_reset_changed()

@@ -55,8 +55,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     if TYPE_CHECKING:  # pragma: no cover
         model_original: Dict[str, Any]
         model_self_changed_fields: Set[str]
+        model_changed_markers: set[str]
 
-    __slots__ = ("model_original", "model_self_changed_fields")
+    __slots__ = ("model_original", "model_self_changed_fields", "model_changed_markers")
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -64,11 +65,13 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     def model_reset_changed(self) -> None:
         """
-        Reset the changed state, this will clear model_self_changed_fields and model_original
+        Reset the changed state, this will clear model_self_changed_fields, model_original
+        and remove all changed markers.
         """
 
         object.__setattr__(self, "model_original", {})
         object.__setattr__(self, "model_self_changed_fields", set())
+        object.__setattr__(self, "model_changed_markers", set())
 
     @property
     def model_changed_fields(self) -> Set[str]:
@@ -99,8 +102,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                     field_value_list = field_value
                 elif isinstance(field_value, dict):
                     field_value_list = list(field_value.values())
-                else:
+                else:  # pragma: no cover
                     # Continue on unsupported type
+                    # (should be already filtered by is_pydantic_change_detect_annotation)
                     continue
 
                 # Check if any of the values has changed
@@ -145,8 +149,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                     field_value_list = list(enumerate(field_value))
                 elif isinstance(field_value, dict):
                     field_value_list = list(field_value.items())
-                else:
+                else:  # pragma: no cover
                     # Continue on unsupported type
+                    # (should be already filtered by is_pydantic_change_detect_annotation)
                     continue
 
                 # Check if any of the values has changed
@@ -164,9 +169,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     @property
     def model_has_changed(self) -> bool:
-        """Return True, when some field was changed"""
+        """Return True, when some field was changed or some changed marker is set."""
 
-        if self.model_self_changed_fields:
+        if self.model_self_changed_fields or self.model_changed_markers:
             return True
 
         return bool(self.model_changed_fields)
@@ -256,6 +261,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         state = super().__getstate__()
         state["model_original"] = self.model_original.copy()
         state["model_self_changed_fields"] = self.model_self_changed_fields.copy()
+        state["model_changed_markers"] = self.model_changed_markers.copy()
         return state
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
@@ -268,6 +274,10 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             object.__setattr__(self, "model_self_changed_fields", state["model_self_changed_fields"])
         else:
             object.__setattr__(self, "model_self_changed_fields", set())
+        if "model_changed_markers" in state:
+            object.__setattr__(self, "model_changed_markers", state["model_changed_markers"])
+        else:
+            object.__setattr__(self, "model_changed_markers", set())
 
     def _get_changed_export_includes(
         self,
@@ -291,6 +301,96 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             else:
                 kwargs["include"] = set(changed_fields)
         return kwargs
+
+    # Restore model/value state
+
+    @classmethod
+    def model_restore_value(cls, value: Any, /) -> Any:
+        """
+        Restore original state of value if it contains any ChangeDetectionMixin
+        instances.
+
+        Contain might be:
+        * value is a list containing such instances
+        * value is a dict containing such instances
+        * value is a ChangeDetectionMixin instance itself
+        """
+
+        if isinstance(value, list):
+            return [
+                cls.model_restore_value(v)
+                for v
+                in value
+            ]
+        elif isinstance(value, dict):
+            return {
+                k: cls.model_restore_value(v)
+                for k, v
+                in value.items()
+            }
+        elif (
+            isinstance(value, ChangeDetectionMixin)
+            and value.model_has_changed
+        ):
+            return value.model_restore_original()
+        else:
+            return value
+
+    def model_restore_original(
+        self: "Model",
+    ) -> "Model":
+        """Restore original state of a ChangeDetectionMixin object."""
+
+        restored_values = {}
+        for key, value in self.__dict__.items():
+            restored_values[key] = self.model_restore_value(value)
+
+        return self.__class__(
+            **{
+                **restored_values,
+                **self.model_original,
+            },
+        )
+
+    def model_get_original_field_value(self, field_name: str, /) -> Any:
+        """Return original value for a field."""
+
+        self_compat = PydanticCompat(self)
+
+        if field_name not in self_compat.model_fields:
+            raise AttributeError(f"Field {field_name} not available in this model")
+
+        if field_name in self.model_original:
+            return self.model_original[field_name]
+
+        current_value = getattr(self, field_name)
+        return self.model_restore_value(current_value)
+
+    # Changed markers
+
+    def model_mark_changed(self, marker: str) -> None:
+        """
+        Add marker for something being changed.
+
+        Markers can be used to keep information about things being changed outside
+        the model scope, but related to the model itself. This could for example
+        be a marker for related objects being added/updated/removed.
+        """
+
+        self.model_changed_markers.add(marker)
+
+    def model_unmark_changed(self, marker: str) -> None:
+        """Remove one changed marker."""
+
+        self.model_changed_markers.discard(marker)
+
+    def model_has_changed_marker(
+        self,
+        marker: str,
+    ) -> bool:
+        """Check whether one changed marker is set."""
+
+        return marker in self.model_changed_markers
 
     # pydantic 2.0 only methods
 
@@ -322,6 +422,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             )
             object.__setattr__(clone, "model_original", self.model_original.copy())
             object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
             return clone
 
         def model_dump(
@@ -422,6 +523,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         )
         object.__setattr__(clone, "model_original", self.model_original.copy())
         object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+        object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
         return clone
 
     if PYDANTIC_V2:
@@ -517,6 +619,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             )
             object.__setattr__(clone, "model_original", self.model_original.copy())
             object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
             return clone
 
         def dict(  # type: ignore[misc]
