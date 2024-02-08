@@ -407,18 +407,20 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             super().model_post_init(__context)
             self.model_reset_changed()
 
-        def model_copy(
-            self: "Model",
-            *,
-            update: Optional[Dict[str, Any]] = None,
-            deep: bool = False,
-        ) -> "Model":
+        def __copy__(self: "Model") -> "Model":
             clone = cast(
                 "Model",
-                super().model_copy(
-                    update=update,
-                    deep=deep,
-                ),
+                super().__copy__(),
+            )
+            object.__setattr__(clone, "model_original", self.model_original.copy())
+            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
+            return clone
+
+        def __deepcopy__(self: "Model", memo: Optional[Dict[str, Any]] = None) -> "Model":
+            clone = cast(
+                "Model",
+                super().__deepcopy__(memo=memo),
             )
             object.__setattr__(clone, "model_original", self.model_original.copy())
             object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())

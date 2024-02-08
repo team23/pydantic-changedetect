@@ -37,6 +37,10 @@ class NestedUnsupported(ChangeDetectionMixin, pydantic.BaseModel):
     sub: Union[Unsupported, Something]
 
 
+class NestedWithDefault(ChangeDetectionMixin, pydantic.BaseModel):
+    sub: Something = Something(id=1)
+
+
 class SomethingWithBrokenPickleState(Something):
     def __getstate__(self) -> Dict[str, Any]:
         # Skip adding changed state in ChangedDetectionMixin.__getstate__
@@ -392,6 +396,19 @@ def test_nested_unsupported():
     assert parent.model_self_changed_fields == set()
     assert parent.model_changed_fields == set()
     assert parent.model_changed_fields_recursive == set()
+
+
+def test_nested_with_default():
+    parent = NestedWithDefault()
+
+    assert parent.sub is not None
+    assert parent.model_has_changed is False
+
+    parent.sub.id = 2
+    assert parent.model_has_changed
+    assert parent.model_self_changed_fields == set()
+    assert parent.model_changed_fields == {"sub"}
+    assert parent.model_changed_fields_recursive == {"sub", "sub.id"}
 
 
 def test_use_private_attributes_works():
