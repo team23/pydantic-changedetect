@@ -417,7 +417,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
             return clone
 
-        def __deepcopy__(self: "Model", memo: Optional[Dict[str, Any]] = None) -> "Model":
+        def __deepcopy__(self: "Model", memo: Optional[Dict[int, Any]] = None) -> "Model":
             clone = cast(
                 "Model",
                 super().__deepcopy__(memo=memo),
