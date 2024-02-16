@@ -532,7 +532,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         # The following methods are SLIGHTLY different fpr v1 and v2, so we need to keep
         # them separate
 
-        def dict(
+        def dict(  # type: ignore
             self,
             *,
             include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
@@ -560,7 +560,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
                 ),
             )
 
-        def json(
+        def json(  # type: ignore
             self,
             include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
             exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
@@ -600,7 +600,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             m.model_reset_changed()
             return m
 
-        def _copy_and_set_values(
+        def _copy_and_set_values(  # type: ignore
             self: "Model",
             values: 'DictStrAny',
             fields_set: 'SetStr',

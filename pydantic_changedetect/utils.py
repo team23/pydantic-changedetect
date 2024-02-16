@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Dict, List, Mapping, Set, Tuple, Union, get_args, get_origin
+from typing import Any, Dict, List, Mapping, Set, Tuple, Type, Union, get_args, get_origin
 
 import pydantic_changedetect
 
@@ -38,7 +38,7 @@ def safe_issubclass(cls: Any, type_: Any) -> bool:
         return False
 
 
-def is_pydantic_change_detect_annotation(annotation: type) -> bool:
+def is_pydantic_change_detect_annotation(annotation: Type[Any]) -> bool:
     """
     Return True if the given annotation is a ChangeDetectionMixin annotation.
     """
