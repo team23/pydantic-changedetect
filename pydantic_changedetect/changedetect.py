@@ -22,6 +22,7 @@ from ._compat import PYDANTIC_V1, PYDANTIC_V2, PydanticCompat
 from .utils import is_pydantic_change_detect_annotation
 
 if TYPE_CHECKING:  # pragma: no cover
+    from pydantic import PrivateAttr
     from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
     if PYDANTIC_V1:
         from pydantic.typing import DictStrAny, SetStr
@@ -53,9 +54,17 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     """
 
     if TYPE_CHECKING:  # pragma: no cover
-        model_original: Dict[str, Any]
-        model_self_changed_fields: Set[str]
-        model_changed_markers: set[str]
+        # Note: Private attributes normally need to start with "_", but this code here
+        #       will only be seen by type checkers. So this is never an issue. The
+        #       usage of ` = PrivateAttr(...)` is also just here to make those type
+        #       checkers happy. Otherwise, they might "require" you to pass those
+        #       parameters to `__init__`, which is just plainly wrong. The private
+        #       attributes ChangeDetectionMixin uses are defined as __slots__ and
+        #       thus just new attributes the class has - not something you need to pass
+        #       anywhere.
+        model_original: Dict[str, Any] = PrivateAttr(...)
+        model_self_changed_fields: Set[str] = PrivateAttr(...)
+        model_changed_markers: set[str] = PrivateAttr(...)
 
     __slots__ = ("model_original", "model_self_changed_fields", "model_changed_markers")
 
