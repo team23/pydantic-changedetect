@@ -6,6 +6,7 @@ from pydantic.version import VERSION as PYDANTIC_VERSION
 
 PYDANTIC_V1 = PYDANTIC_VERSION.startswith("1.")
 PYDANTIC_V2 = PYDANTIC_VERSION.startswith("2.")
+PYDANTIC_VERSION_TUPLE = tuple(map(int, PYDANTIC_VERSION.split('.')))
 
 if PYDANTIC_V1:  # pragma: no cover
     class PydanticCompat:  # type: ignore
