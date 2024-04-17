@@ -1,1 +1,1 @@
-from .changedetect import ChangeDetectionMixin
+from .changedetect import ChangeDetectionMixin as ChangeDetectionMixin
