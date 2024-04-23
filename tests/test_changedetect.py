@@ -1,3 +1,4 @@
+import datetime
 import decimal
 import pickle
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -53,6 +54,10 @@ class SomethingWithDifferentValueTypes(ChangeDetectionMixin, pydantic.BaseModel)
     f: Union[float, None] = None
     b: Union[bool, None] = None
     d: Union[decimal.Decimal, None] = None
+    ddt: Union[datetime.datetime, None] = None
+    dd: Union[datetime.date, None] = None
+    dt: Union[datetime.time, None] = None
+    dtd: Union[datetime.timedelta, None] = None
     m: Union[Something, None] = None
 
 
@@ -437,8 +442,18 @@ def test_use_private_attributes_works():
         ("b", True, True, False),
         ("d", decimal.Decimal(1), decimal.Decimal(2), True),
         ("d", decimal.Decimal(1), decimal.Decimal(1), False),
+        ("ddt", datetime.datetime(1970, 1,1, 0, 0), datetime.datetime(1970, 1,1, 0, 1), True),
+        ("ddt", datetime.datetime(1970, 1,1, 0, 0), datetime.datetime(1970, 1,2, 0, 0), True),
+        ("ddt", datetime.datetime(1970, 1,1, 0, 0), datetime.datetime(1970, 1,1, 0, 0), False),
+        ("dd", datetime.date(1970, 1,1), datetime.date(1970, 1,2), True),
+        ("dd", datetime.date(1970, 1,1), datetime.date(1970, 1,1), False),
+        ("dt", datetime.time(12, 34), datetime.time(12, 56), True),
+        ("dt", datetime.time(12, 34), datetime.time(12, 34), False),
+        ("dtd", datetime.timedelta(days=1), datetime.timedelta(seconds=1), True),
+        ("dtd", datetime.timedelta(hours=1), datetime.timedelta(seconds=3600), False),
+        ("dtd", datetime.timedelta(days=1), datetime.timedelta(days=1), False),
         ("m", Something(id=1), Something(id=2), True),
-        ("m", Something(id=1), Something(id=1), True),  # models will always be counted as changed
+        ("m", Something(id=1), Something(id=1), False),
     ],
 )
 def test_value_types_checked_for_equality(

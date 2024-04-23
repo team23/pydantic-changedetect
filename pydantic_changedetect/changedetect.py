@@ -1,3 +1,4 @@
+import datetime
 import decimal
 import warnings
 from typing import (
@@ -32,6 +33,14 @@ if TYPE_CHECKING:  # pragma: no cover
     Model = TypeVar("Model", bound="ChangeDetectionMixin")
 
 NO_VALUE = object()
+COMPARABLE_TYPES = (
+    str,
+    int, float,
+    bool,
+    decimal.Decimal,
+    datetime.datetime, datetime.date, datetime.time, datetime.timedelta,
+    pydantic.BaseModel,
+)
 
 
 class ChangeDetectionMixin(pydantic.BaseModel):
@@ -221,10 +230,29 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             self.model_self_changed_fields.add(name)
 
     def _model_value_is_comparable_type(self, value: Any) -> bool:
+        if isinstance(value, (list, set, tuple)):
+            return all(
+                self._model_value_is_comparable_type(i)
+                for i
+                in value
+            )
+        elif isinstance(value, dict):
+            return all(
+                (
+                    self._model_value_is_comparable_type(k)
+                    and self._model_value_is_comparable_type(v)
+                )
+                for k, v
+                in value.items()
+            )
+
         return (
             value is None
-            or isinstance(value, (str, int, float, bool, decimal.Decimal))
+            or isinstance(value, COMPARABLE_TYPES)
         )
+
+    def _model_value_is_actually_unchanged(self, value1: Any, value2: Any) -> bool:
+        return value1 == value2
 
     @no_type_check
     def __setattr__(self, name, value) -> None:  # noqa: ANN001
@@ -257,7 +285,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             if (
                 self._model_value_is_comparable_type(original_value)
                 and self._model_value_is_comparable_type(current_value)
-                and original_value == current_value
+                and self._model_value_is_actually_unchanged(original_value, current_value)
             ):
                 has_changed = False
 
