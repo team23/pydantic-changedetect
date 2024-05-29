@@ -703,3 +703,26 @@ def test_model_is_changed_if_marker_or_change_exists():
     something.model_mark_changed("test")
     assert something.model_has_changed
     something.model_reset_changed()
+
+
+@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support computed fields")
+def test_computed_fields_are_ignored():
+    class SomethingComputed(ChangeDetectionMixin, pydantic.BaseModel):
+        name: str
+
+        @pydantic.computed_field(return_type=str)
+        def computed(self) -> str:
+            return "computed"
+
+
+    something = SomethingComputed(name="test")
+
+    assert something.model_has_changed is False
+    assert something.model_changed_fields == set()
+    assert something.computed == "computed"
+
+    something.name = "new"
+
+    assert something.model_has_changed is True
+    assert something.model_changed_fields == {"name"}
+    assert something.computed == "computed"
