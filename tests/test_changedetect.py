@@ -14,6 +14,11 @@ class Something(ChangeDetectionMixin, pydantic.BaseModel):
     id: int
 
 
+class SomethingMultipleFields(ChangeDetectionMixin, pydantic.BaseModel):
+    id: int
+    foo: str
+
+
 class Unsupported(pydantic.BaseModel):
     id: int
 
@@ -477,6 +482,17 @@ def test_model_construct_works():
     something.id = 2
 
     assert something.model_has_changed is True
+
+
+@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_construct()")
+def test_model_construct_works_for_models_loaded_with_few_fields():
+    something_multiple_fields = SomethingMultipleFields.model_construct(id=1)
+
+    assert something_multiple_fields.model_has_changed is False
+
+    something_multiple_fields.id = 2
+
+    assert something_multiple_fields.model_has_changed is True
 
 
 @pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")

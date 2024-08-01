@@ -99,6 +99,10 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         changed_fields = self.model_self_changed_fields.copy()
         for field_name, model_field in self_compat.model_fields.items():
+            # Support for instances created through model_construct, when not all fields have been defined
+            if field_name not in self.__dict__:
+                continue
+
             field_value = self.__dict__[field_name]
 
             # Value is a ChangeDetectionMixin instance itself
