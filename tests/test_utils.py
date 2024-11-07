@@ -30,15 +30,14 @@ def test_safe_issubclass():
 
 def test_safe_issubclass_for_type_definitions():
     with pytest.warns(DeprecationWarning):
-        assert safe_issubclass(List[str], BaseClass) is False
+        assert safe_issubclass(list[str], BaseClass) is False
     with pytest.warns(DeprecationWarning):
-        assert safe_issubclass(Dict[str, str], BaseClass) is False
+        assert safe_issubclass(dict[str, str], BaseClass) is False
 
-    if sys.version_info >= (3, 9):
-        with pytest.warns(DeprecationWarning):
-            assert safe_issubclass(list[str], BaseClass) is False
-        with pytest.warns(DeprecationWarning):
-            assert safe_issubclass(dict[str, str], BaseClass) is False
+    with pytest.warns(DeprecationWarning):
+        assert safe_issubclass(list[str], BaseClass) is False
+    with pytest.warns(DeprecationWarning):
+        assert safe_issubclass(dict[str, str], BaseClass) is False
 
 
 def test_ensure_normal_issubclass_raises_an_issue():
@@ -48,15 +47,14 @@ def test_ensure_normal_issubclass_raises_an_issue():
 
 def test_safe_issubclass_for_type_definitions_for_abstract():
     with pytest.warns(DeprecationWarning):
-        assert safe_issubclass(List[str], AbstractClass) is False
+        assert safe_issubclass(list[str], AbstractClass) is False
     with pytest.warns(DeprecationWarning):
-        assert safe_issubclass(Dict[str, str], AbstractClass) is False
+        assert safe_issubclass(dict[str, str], AbstractClass) is False
 
-    if sys.version_info >= (3, 9):
-        with pytest.warns(DeprecationWarning):
-            assert safe_issubclass(list[str], AbstractClass) is False
-        with pytest.warns(DeprecationWarning):
-            assert safe_issubclass(dict[str, str], AbstractClass) is False
+    with pytest.warns(DeprecationWarning):
+        assert safe_issubclass(list[str], AbstractClass) is False
+    with pytest.warns(DeprecationWarning):
+        assert safe_issubclass(dict[str, str], AbstractClass) is False
 
 
 class SomeModel(ChangeDetectionMixin, pydantic.BaseModel):
@@ -95,17 +93,17 @@ def test_is_pydantic_change_detect_annotation_union_types():
 
 
 def test_is_pydantic_change_detect_annotation_list_types():
-    assert is_pydantic_change_detect_annotation(List[int]) is False
-    assert is_pydantic_change_detect_annotation(List[OtherModel]) is False
-    assert is_pydantic_change_detect_annotation(Tuple[int]) is False
-    assert is_pydantic_change_detect_annotation(Tuple[OtherModel]) is False
+    assert is_pydantic_change_detect_annotation(list[int]) is False
+    assert is_pydantic_change_detect_annotation(list[OtherModel]) is False
+    assert is_pydantic_change_detect_annotation(tuple[int]) is False
+    assert is_pydantic_change_detect_annotation(tuple[OtherModel]) is False
 
-    assert is_pydantic_change_detect_annotation(List[SomeModel]) is True
-    assert is_pydantic_change_detect_annotation(Tuple[SomeModel]) is True
+    assert is_pydantic_change_detect_annotation(list[SomeModel]) is True
+    assert is_pydantic_change_detect_annotation(tuple[SomeModel]) is True
 
 
 def test_is_pydantic_change_detect_annotation_dict_types():
-    assert is_pydantic_change_detect_annotation(Dict[str, int]) is False
-    assert is_pydantic_change_detect_annotation(Dict[str, OtherModel]) is False
+    assert is_pydantic_change_detect_annotation(dict[str, int]) is False
+    assert is_pydantic_change_detect_annotation(dict[str, OtherModel]) is False
 
-    assert is_pydantic_change_detect_annotation(Dict[str, SomeModel]) is True
+    assert is_pydantic_change_detect_annotation(dict[str, SomeModel]) is True

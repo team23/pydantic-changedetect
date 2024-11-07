@@ -1,4 +1,4 @@
-from typing import Any, Dict, Type
+from typing import Any
 
 import pydantic
 from pydantic.fields import FieldInfo
@@ -19,7 +19,7 @@ if PYDANTIC_V1:  # pragma: no cover
             self.obj = obj
 
         @property
-        def model_fields(self) -> Dict[str, FieldInfo]:
+        def model_fields(self) -> dict[str, FieldInfo]:
             return self.obj.__fields__
 
         def get_model_field_info_annotation(self, model_field: FieldInfo) -> type:
@@ -36,10 +36,10 @@ elif PYDANTIC_V2:  # pragma: no cover
             self.obj = obj
 
         @property
-        def model_fields(self) -> Dict[str, FieldInfo]:
+        def model_fields(self) -> dict[str, FieldInfo]:
             return self.obj.model_fields
 
-        def get_model_field_info_annotation(self, model_field: FieldInfo) -> Type[Any]:
+        def get_model_field_info_annotation(self, model_field: FieldInfo) -> type[Any]:
             if model_field.annotation is None:
                 raise RuntimeError("model field has not typing annotation")
             return model_field.annotation

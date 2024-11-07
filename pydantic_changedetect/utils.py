@@ -1,5 +1,6 @@
 import warnings
-from typing import Any, Dict, List, Mapping, Set, Tuple, Type, Union, get_args, get_origin
+from collections.abc import Mapping
+from typing import Any, Dict, List, Set, Tuple, Union, get_args, get_origin
 
 import pydantic_changedetect
 
@@ -38,14 +39,20 @@ def safe_issubclass(cls: Any, type_: Any) -> bool:
         return False
 
 
-def is_pydantic_change_detect_annotation(annotation: Type[Any]) -> bool:
+def is_class_type(annotation: Any) -> bool:
+    # If the origin is None, it's likely a concrete class
+    return get_origin(annotation) is None
+
+
+def is_pydantic_change_detect_annotation(annotation: type[Any]) -> bool:
     """
     Return True if the given annotation is a ChangeDetectionMixin annotation.
     """
 
     # if annotation is an ChangeDetectionMixin everything is easy
     if (
-        isinstance(annotation, type)
+        is_class_type(annotation)
+        and isinstance(annotation, type)
         and issubclass(annotation, pydantic_changedetect.ChangeDetectionMixin)
     ):
         return True

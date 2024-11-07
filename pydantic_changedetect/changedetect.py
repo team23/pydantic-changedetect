@@ -5,11 +5,9 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
+    Dict,  # We still need to use this, as dict is a class method and pollutes the class scope
     Literal,
     Optional,
-    Set,
-    Type,
     TypeVar,
     Union,
     cast,
@@ -72,7 +70,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         #       thus just new attributes the class has - not something you need to pass
         #       anywhere.
         model_original: Dict[str, Any] = PrivateAttr(...)
-        model_self_changed_fields: Set[str] = PrivateAttr(...)
+        model_self_changed_fields: set[str] = PrivateAttr(...)
         model_changed_markers: set[str] = PrivateAttr(...)
 
     __slots__ = ("model_original", "model_self_changed_fields", "model_changed_markers")
@@ -92,7 +90,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         object.__setattr__(self, "model_changed_markers", set())
 
     @property
-    def model_changed_fields(self) -> Set[str]:
+    def model_changed_fields(self) -> set[str]:
         """Return list of all changed fields, submodels are considered as one field"""
 
         self_compat = PydanticCompat(self)
@@ -141,7 +139,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         return changed_fields
 
     @property
-    def model_changed_fields_recursive(self) -> Set[str]:
+    def model_changed_fields_recursive(self) -> set[str]:
         """Return a list of all changed fields recursive using dotted syntax"""
 
         self_compat = PydanticCompat(self)
@@ -437,7 +435,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     if PYDANTIC_V2:
         @classmethod
-        def model_construct(cls: Type["Model"], *args: Any, **kwargs: Any) -> "Model":
+        def model_construct(cls: type["Model"], *args: Any, **kwargs: Any) -> "Model":
             """Construct an unvalidated instance"""
 
             m = cast("Model", super().model_construct(*args, **kwargs))
@@ -715,7 +713,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     if PYDANTIC_V1:  # pragma: no cover
         @classmethod
-        def construct(cls: Type["Model"], *args: Any, **kwargs: Any) -> "Model":
+        def construct(cls: type["Model"], *args: Any, **kwargs: Any) -> "Model":
             """Construct an unvalidated instance"""
 
             m = cast("Model", super().construct(*args, **kwargs))
@@ -831,7 +829,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         return self.model_original
 
     @property
-    def __self_changed_fields__(self) -> Set[str]:
+    def __self_changed_fields__(self) -> set[str]:
         warnings.warn(
             "__self_changed_fields__ is deprecated, use model_self_changed_fields instead",
             DeprecationWarning,
@@ -840,7 +838,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         return self.model_self_changed_fields
 
     @property
-    def __changed_fields__(self) -> Set[str]:
+    def __changed_fields__(self) -> set[str]:
         warnings.warn(
             "__changed_fields__ is deprecated, use model_changed_fields instead",
             DeprecationWarning,
@@ -849,7 +847,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         return self.model_changed_fields
 
     @property
-    def __changed_fields_recursive__(self) -> Set[str]:
+    def __changed_fields_recursive__(self) -> set[str]:
         warnings.warn(
             "__changed_fields_recursive__ is deprecated, use model_changed_fields_recursive instead",
             DeprecationWarning,

@@ -28,15 +28,15 @@ class Nested(ChangeDetectionMixin, pydantic.BaseModel):
 
 
 class NestedList(ChangeDetectionMixin, pydantic.BaseModel):
-    sub: List[Something]
+    sub: list[Something]
 
 
 class NestedTuple(ChangeDetectionMixin, pydantic.BaseModel):
-    sub: Tuple[Something, ...]
+    sub: tuple[Something, ...]
 
 
 class NestedDict(ChangeDetectionMixin, pydantic.BaseModel):
-    sub: Dict[str, Something]
+    sub: dict[str, Something]
 
 
 class NestedUnsupported(ChangeDetectionMixin, pydantic.BaseModel):
@@ -48,7 +48,7 @@ class NestedWithDefault(ChangeDetectionMixin, pydantic.BaseModel):
 
 
 class SomethingWithBrokenPickleState(Something):
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         # Skip adding changed state in ChangedDetectionMixin.__getstate__
         return super(ChangeDetectionMixin, self).__getstate__()
 
