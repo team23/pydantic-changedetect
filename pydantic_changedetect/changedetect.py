@@ -73,7 +73,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         model_self_changed_fields: set[str] = PrivateAttr(...)
         model_changed_markers: set[str] = PrivateAttr(...)
 
-    __slots__ = ("model_original", "model_self_changed_fields", "model_changed_markers")
+    __slots__ = ("model_changed_markers", "model_original", "model_self_changed_fields")
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
