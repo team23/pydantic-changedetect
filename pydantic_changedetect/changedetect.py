@@ -69,9 +69,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         #       attributes ChangeDetectionMixin uses are defined as __slots__ and
         #       thus just new attributes the class has - not something you need to pass
         #       anywhere.
-        model_original: Dict[str, Any] = PrivateAttr(...)
-        model_self_changed_fields: set[str] = PrivateAttr(...)
-        model_changed_markers: set[str] = PrivateAttr(...)
+        model_original: Dict[str, Any] = PrivateAttr(...)  # pyright: ignore[reportAssignmentType]
+        model_self_changed_fields: set[str] = PrivateAttr(...)  # pyright: ignore[reportAssignmentType]
+        model_changed_markers: set[str] = PrivateAttr(...)  # pyright: ignore[reportAssignmentType]
 
     __slots__ = ("model_changed_markers", "model_original", "model_self_changed_fields")
 
