@@ -37,7 +37,7 @@ elif PYDANTIC_V2:  # pragma: no cover
 
         @property
         def model_fields(self) -> dict[str, FieldInfo]:
-            return self.obj.model_fields
+            return self.obj.__class__.model_fields
 
         def get_model_field_info_annotation(self, model_field: FieldInfo) -> type[Any]:
             if model_field.annotation is None:
