@@ -22,4 +22,4 @@ jobs:
           poetry install
       - name: Test with pytest
         run: |
-          poetry run tox -e 'py-2.6,py-2.x'
+          poetry run tox -e 'py'
