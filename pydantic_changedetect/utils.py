@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Mapping
-from typing import Any, Dict, List, Set, Tuple, Union, get_args, get_origin
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, get_args, get_origin
 
 import pydantic_changedetect
 
@@ -44,7 +44,7 @@ def is_class_type(annotation: Any) -> bool:
     return get_origin(annotation) is None
 
 
-def is_pydantic_change_detect_annotation(annotation: type[Any] | None) -> bool:
+def is_pydantic_change_detect_annotation(annotation: Optional[type[Any]]) -> bool:
     """
     Return True if the given annotation is a ChangeDetectionMixin annotation.
     """
