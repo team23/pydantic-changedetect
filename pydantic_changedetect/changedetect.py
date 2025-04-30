@@ -4,7 +4,6 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Dict,  # We still need to use this, as dict is a class method and pollutes the class scope
     Literal,
     Optional,
@@ -17,16 +16,12 @@ from typing import (
 
 import pydantic
 
-from ._compat import PYDANTIC_V1, PYDANTIC_V2, PYDANTIC_VERSION_TUPLE, PydanticCompat
+from ._compat import PYDANTIC_VERSION_TUPLE
 from .utils import is_pydantic_change_detect_annotation
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import PrivateAttr
     from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
-    if PYDANTIC_V1:
-        from pydantic.typing import DictStrAny, SetStr
-    if PYDANTIC_V2:
-        from pydantic.main import IncEx
 
     Model = TypeVar("Model", bound="ChangeDetectionMixin")
 
@@ -93,10 +88,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     def model_changed_fields(self) -> set[str]:
         """Return list of all changed fields, submodels are considered as one field"""
 
-        self_compat = PydanticCompat(self)
-
         changed_fields = self.model_self_changed_fields.copy()
-        for field_name, model_field in self_compat.model_fields.items():
+        for field_name, model_field in self.model_fields.items():
             # Support for instances created through model_construct, when not all fields have been defined
             if field_name not in self.__dict__:
                 continue
@@ -114,7 +107,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             elif (
                 field_value
                 and is_pydantic_change_detect_annotation(
-                    self_compat.get_model_field_info_annotation(model_field),
+                    model_field.annotation,
                 )
             ):
                 # Collect all possible values
@@ -142,10 +135,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     def model_changed_fields_recursive(self) -> set[str]:
         """Return a list of all changed fields recursive using dotted syntax"""
 
-        self_compat = PydanticCompat(self)
-
         changed_fields = self.model_self_changed_fields.copy()
-        for field_name, model_field in self_compat.model_fields.items():
+        for field_name, model_field in self.model_fields.items():
             field_value = self.__dict__[field_name]
 
             # Value is a ChangeDetectionMixin instance itself
@@ -161,7 +152,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
             elif (
                 field_value
                 and is_pydantic_change_detect_annotation(
-                    self_compat.get_model_field_info_annotation(model_field),
+                    model_field.annotation,
                 )
             ):
                 # Collect all possible values
@@ -209,8 +200,6 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         Optionally provide an original value for the field.
         """
 
-        self_compat = PydanticCompat(self)
-
         # Ensure we have a valid call
         if original is not NO_VALUE and len(fields) > 1:
             raise RuntimeError(
@@ -220,7 +209,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         # Ensure all fields exists
         for name in fields:
-            if name not in self_compat.model_fields:
+            if name not in self.__class__.model_fields:
                 raise AttributeError(f"Field {name} not available in this model")
 
         # Mark fields as changed
@@ -258,8 +247,6 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     @no_type_check
     def __setattr__(self, name, value) -> None:  # noqa: ANN001
-        self_compat = PydanticCompat(self)
-
         # Private attributes need not to be handled
         if (
             self.__private_attributes__  # may be None
@@ -270,7 +257,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         # Get original value
         original_update = {}
-        if name in self_compat.model_fields and name not in self.model_original:
+        if name in self.model_fields and name not in self.model_original:
             original_update[name] = self.__dict__[name]
 
         # Store changed value using pydantic
@@ -278,7 +265,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         # Check if value has actually been changed
         has_changed = True
-        if name in self_compat.model_fields:
+        if name in self.model_fields:
             # Fetch original from original_update so we don't have to check everything again
             original_value = original_update.get(name, None)
             # Don't use value parameter directly, as pydantic validation might have changed it
@@ -394,9 +381,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     def model_get_original_field_value(self, field_name: str, /) -> Any:
         """Return original value for a field."""
 
-        self_compat = PydanticCompat(self)
-
-        if field_name not in self_compat.model_fields:
+        if field_name not in self.__class__.model_fields:
             raise AttributeError(f"Field {field_name} not available in this model")
 
         if field_name in self.model_original:
@@ -431,193 +416,190 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         return marker in self.model_changed_markers
 
-    # pydantic 2.0 only methods
+    @classmethod
+    def model_construct(cls: type["Model"], *args: Any, **kwargs: Any) -> "Model":
+        """Construct an unvalidated instance"""
 
-    if PYDANTIC_V2:
-        @classmethod
-        def model_construct(cls: type["Model"], *args: Any, **kwargs: Any) -> "Model":
-            """Construct an unvalidated instance"""
+        m = cast("Model", super().model_construct(*args, **kwargs))
+        m.model_reset_changed()
+        return m
 
-            m = cast("Model", super().model_construct(*args, **kwargs))
-            m.model_reset_changed()
-            return m
+    def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
+        self.model_reset_changed()
 
-        def model_post_init(self, __context: Any) -> None:
-            super().model_post_init(__context)
-            self.model_reset_changed()
+    def __copy__(self: "Model") -> "Model":
+        clone = cast(
+            "Model",
+            super().__copy__(),
+        )
+        object.__setattr__(clone, "model_original", self.model_original.copy())
+        object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+        object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
+        return clone
 
-        def __copy__(self: "Model") -> "Model":
-            clone = cast(
-                "Model",
-                super().__copy__(),
+    def __deepcopy__(self: "Model", memo: Optional[Dict[int, Any]] = None) -> "Model":
+        clone = cast(
+            "Model",
+            super().__deepcopy__(memo=memo),
+        )
+        object.__setattr__(clone, "model_original", self.model_original.copy())
+        object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
+        object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
+        return clone
+
+    if PYDANTIC_VERSION_TUPLE >= (2, 7, 0):
+        def model_dump(  # pyright: ignore [reportRedeclaration]
+            self,
+            *,
+            mode: Union[Literal['json', 'python'], str] = 'python',
+            include: "IncEx | None" = None,
+            exclude: "IncEx | None" = None,
+            context: Optional[Dict[str, Any]] = None,  # Available since 2.7
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            round_trip: bool = False,
+            warnings: bool = True,
+            serialize_as_any: bool = False,  # Available since 2.7
+        ) -> Dict[str, Any]:
+            """
+            Generate a dictionary representation of the model, optionally specifying
+            which fields to include or exclude.
+
+            Extends normal pydantic method to also allow to use `exclude_unchanged`.
+            """
+
+            return super().model_dump(
+                **self._get_changed_export_includes(
+                    mode=mode,
+                    include=include,
+                    exclude=exclude,
+                    context=context,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    round_trip=round_trip,
+                    warnings=warnings,
+                    serialize_as_any=serialize_as_any,
+                ),
             )
-            object.__setattr__(clone, "model_original", self.model_original.copy())
-            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
-            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
-            return clone
 
-        def __deepcopy__(self: "Model", memo: Optional[Dict[int, Any]] = None) -> "Model":
-            clone = cast(
-                "Model",
-                super().__deepcopy__(memo=memo),
+        def model_dump_json(  # pyright: ignore [reportRedeclaration]
+            self,
+            *,
+            indent: Optional[int] = None,
+            include: "IncEx | None" = None,
+            exclude: "IncEx | None" = None,
+            context: Optional[Dict[str, Any]] = None,  # Available since 2.7
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            round_trip: bool = False,
+            warnings: bool = True,
+            serialize_as_any: bool = False,  # Available since 2.7
+        ) -> str:
+            """
+            Generates a JSON representation of the model using Pydantic's `to_json`
+            method.
+
+            Extends normal pydantic method to also allow to use `exclude_unchanged`.
+            """
+
+            return super().model_dump_json(
+                **self._get_changed_export_includes(
+                    indent=indent,
+                    include=include,
+                    exclude=exclude,
+                    context=context,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    round_trip=round_trip,
+                    warnings=warnings,
+                    serialize_as_any=serialize_as_any,
+                ),
             )
-            object.__setattr__(clone, "model_original", self.model_original.copy())
-            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
-            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
-            return clone
+    else:  # Version 2.x < 2.7.0
+        def model_dump(  # pyright: ignore [reportIncompatibleMethodOverride]
+            self,
+            *,
+            mode: Union[Literal['json', 'python'], str] = 'python',
+            include: "IncEx | None" = None,
+            exclude: "IncEx | None" = None,
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            round_trip: bool = False,
+            warnings: bool = True,
+        ) -> Dict[str, Any]:
+            """
+            Generate a dictionary representation of the model, optionally specifying
+            which fields to include or exclude.
 
-        if PYDANTIC_VERSION_TUPLE >= (2, 7, 0):
-            def model_dump(  # pyright: ignore [reportRedeclaration]
-                self,
-                *,
-                mode: Union[Literal['json', 'python'], str] = 'python',
-                include: "IncEx | None" = None,
-                exclude: "IncEx | None" = None,
-                context: Optional[Dict[str, Any]] = None,  # Available since 2.7
-                by_alias: bool = False,
-                exclude_unset: bool = False,
-                exclude_defaults: bool = False,
-                exclude_none: bool = False,
-                exclude_unchanged: bool = False,
-                round_trip: bool = False,
-                warnings: bool = True,
-                serialize_as_any: bool = False,  # Available since 2.7
-            ) -> Dict[str, Any]:
-                """
-                Generate a dictionary representation of the model, optionally specifying
-                which fields to include or exclude.
+            Extends normal pydantic method to also allow to use `exclude_unchanged`.
+            """
 
-                Extends normal pydantic method to also allow to use `exclude_unchanged`.
-                """
+            return super().model_dump(
+                **self._get_changed_export_includes(
+                    mode=mode,
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    round_trip=round_trip,
+                    warnings=warnings,
+                ),
+            )
 
-                return super().model_dump(
-                    **self._get_changed_export_includes(
-                        mode=mode,
-                        include=include,
-                        exclude=exclude,
-                        context=context,
-                        by_alias=by_alias,
-                        exclude_unset=exclude_unset,
-                        exclude_defaults=exclude_defaults,
-                        exclude_none=exclude_none,
-                        exclude_unchanged=exclude_unchanged,
-                        round_trip=round_trip,
-                        warnings=warnings,
-                        serialize_as_any=serialize_as_any,
-                    ),
-                )
+        def model_dump_json(  # pyright: ignore [reportIncompatibleMethodOverride]
+            self,
+            *,
+            indent: Optional[int] = None,
+            include: "IncEx | None" = None,
+            exclude: "IncEx | None" = None,
+            by_alias: bool = False,
+            exclude_unset: bool = False,
+            exclude_defaults: bool = False,
+            exclude_none: bool = False,
+            exclude_unchanged: bool = False,
+            round_trip: bool = False,
+            warnings: bool = True,
+        ) -> str:
+            """
+            Generates a JSON representation of the model using Pydantic's `to_json`
+            method.
 
-            def model_dump_json(  # pyright: ignore [reportRedeclaration]
-                self,
-                *,
-                indent: Optional[int] = None,
-                include: "IncEx | None" = None,
-                exclude: "IncEx | None" = None,
-                context: Optional[Dict[str, Any]] = None,  # Available since 2.7
-                by_alias: bool = False,
-                exclude_unset: bool = False,
-                exclude_defaults: bool = False,
-                exclude_none: bool = False,
-                exclude_unchanged: bool = False,
-                round_trip: bool = False,
-                warnings: bool = True,
-                serialize_as_any: bool = False,  # Available since 2.7
-            ) -> str:
-                """
-                Generates a JSON representation of the model using Pydantic's `to_json`
-                method.
+            Extends normal pydantic method to also allow to use `exclude_unchanged`.
+            """
 
-                Extends normal pydantic method to also allow to use `exclude_unchanged`.
-                """
-
-                return super().model_dump_json(
-                    **self._get_changed_export_includes(
-                        indent=indent,
-                        include=include,
-                        exclude=exclude,
-                        context=context,
-                        by_alias=by_alias,
-                        exclude_unset=exclude_unset,
-                        exclude_defaults=exclude_defaults,
-                        exclude_none=exclude_none,
-                        exclude_unchanged=exclude_unchanged,
-                        round_trip=round_trip,
-                        warnings=warnings,
-                        serialize_as_any=serialize_as_any,
-                    ),
-                )
-        else:  # Version 2.x < 2.7.0
-            def model_dump(  # pyright: ignore [reportIncompatibleMethodOverride]
-                self,
-                *,
-                mode: Union[Literal['json', 'python'], str] = 'python',
-                include: "IncEx | None" = None,
-                exclude: "IncEx | None" = None,
-                by_alias: bool = False,
-                exclude_unset: bool = False,
-                exclude_defaults: bool = False,
-                exclude_none: bool = False,
-                exclude_unchanged: bool = False,
-                round_trip: bool = False,
-                warnings: bool = True,
-            ) -> Dict[str, Any]:
-                """
-                Generate a dictionary representation of the model, optionally specifying
-                which fields to include or exclude.
-
-                Extends normal pydantic method to also allow to use `exclude_unchanged`.
-                """
-
-                return super().model_dump(
-                    **self._get_changed_export_includes(
-                        mode=mode,
-                        include=include,
-                        exclude=exclude,
-                        by_alias=by_alias,
-                        exclude_unset=exclude_unset,
-                        exclude_defaults=exclude_defaults,
-                        exclude_none=exclude_none,
-                        exclude_unchanged=exclude_unchanged,
-                        round_trip=round_trip,
-                        warnings=warnings,
-                    ),
-                )
-
-            def model_dump_json(  # pyright: ignore [reportIncompatibleMethodOverride]
-                self,
-                *,
-                indent: Optional[int] = None,
-                include: "IncEx | None" = None,
-                exclude: "IncEx | None" = None,
-                by_alias: bool = False,
-                exclude_unset: bool = False,
-                exclude_defaults: bool = False,
-                exclude_none: bool = False,
-                exclude_unchanged: bool = False,
-                round_trip: bool = False,
-                warnings: bool = True,
-            ) -> str:
-                """
-                Generates a JSON representation of the model using Pydantic's `to_json`
-                method.
-
-                Extends normal pydantic method to also allow to use `exclude_unchanged`.
-                """
-
-                return super().model_dump_json(
-                    **self._get_changed_export_includes(
-                        indent=indent,
-                        include=include,
-                        exclude=exclude,
-                        by_alias=by_alias,
-                        exclude_unset=exclude_unset,
-                        exclude_defaults=exclude_defaults,
-                        exclude_none=exclude_none,
-                        exclude_unchanged=exclude_unchanged,
-                        round_trip=round_trip,
-                        warnings=warnings,
-                    ),
-                )
+            return super().model_dump_json(
+                **self._get_changed_export_includes(
+                    indent=indent,
+                    include=include,
+                    exclude=exclude,
+                    by_alias=by_alias,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                    exclude_unchanged=exclude_unchanged,
+                    round_trip=round_trip,
+                    warnings=warnings,
+                ),
+            )
 
     # Compatibility for pydantic 2.0 compatibility methods to support pydantic 1.0 migration 🙈
 
@@ -648,166 +630,62 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
         return clone
 
-    if PYDANTIC_V2:
-        # The following methods are SLIGHTLY different for v1 and v2, so we need to keep
-        # them separate
+    def dict(  # type: ignore
+        self,
+        *,
+        include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+        exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+        by_alias: bool = False,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        exclude_unchanged: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Generate a dictionary representation of the model, optionally
+        specifying which fields to include or exclude.
+        """
 
-        def dict(  # type: ignore
-            self,
-            *,
-            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            by_alias: bool = False,
-            exclude_unset: bool = False,
-            exclude_defaults: bool = False,
-            exclude_none: bool = False,
-            exclude_unchanged: bool = False,
-        ) -> Dict[str, Any]:
-            """
-            Generate a dictionary representation of the model, optionally
-            specifying which fields to include or exclude.
-            """
+        return super().dict(
+            **self._get_changed_export_includes(
+                include=include,
+                exclude=exclude,
+                by_alias=by_alias,
+                exclude_unset=exclude_unset,
+                exclude_defaults=exclude_defaults,
+                exclude_none=exclude_none,
+                exclude_unchanged=exclude_unchanged,
+            ),
+        )
 
-            return super().dict(
-                **self._get_changed_export_includes(
-                    include=include,
-                    exclude=exclude,
-                    by_alias=by_alias,
-                    exclude_unset=exclude_unset,
-                    exclude_defaults=exclude_defaults,
-                    exclude_none=exclude_none,
-                    exclude_unchanged=exclude_unchanged,
-                ),
-            )
+    def json(  # type: ignore
+        self,
+        include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+        exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+        by_alias: bool = False,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        exclude_unchanged: bool = False,
+        **dumps_kwargs: Any,
+    ) -> str:
+        """
+        Generate a JSON representation of the model, `include` and `exclude`
+        arguments as per `dict()`.
+        """
 
-        def json(  # type: ignore
-            self,
-            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            by_alias: bool = False,
-            exclude_unset: bool = False,
-            exclude_defaults: bool = False,
-            exclude_none: bool = False,
-            exclude_unchanged: bool = False,
-            **dumps_kwargs: Any,
-        ) -> str:
-            """
-            Generate a JSON representation of the model, `include` and `exclude`
-            arguments as per `dict()`.
-            """
-
-            return super().json(
-                **self._get_changed_export_includes(
-                    include=include,
-                    exclude=exclude,
-                    by_alias=by_alias,
-                    exclude_unset=exclude_unset,
-                    exclude_defaults=exclude_defaults,
-                    exclude_none=exclude_none,
-                    exclude_unchanged=exclude_unchanged,
-                    **dumps_kwargs,
-                ),
-            )
-
-    # Compatibility methods for pydantic v1
-
-    if PYDANTIC_V1:  # pragma: no cover
-        @classmethod
-        def construct(cls: type["Model"], *args: Any, **kwargs: Any) -> "Model":
-            """Construct an unvalidated instance"""
-
-            m = cast("Model", super().construct(*args, **kwargs))
-            m.model_reset_changed()
-            return m
-
-        def _copy_and_set_values(  # type: ignore
-            self: "Model",
-            values: 'DictStrAny',
-            fields_set: 'SetStr',
-            *,
-            deep: bool,
-        ) -> "Model":
-            """
-            Return a copy of the model instance, will be used in copy() (among others).
-            """
-
-            clone = cast(
-                "Model",
-                super()._copy_and_set_values(
-                    values,
-                    fields_set,
-                    deep=deep,
-                ),
-            )
-            object.__setattr__(clone, "model_original", self.model_original.copy())
-            object.__setattr__(clone, "model_self_changed_fields", self.model_self_changed_fields.copy())
-            object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
-            return clone
-
-        def dict(  # type: ignore[misc]
-            self,
-            *,
-            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            by_alias: bool = False,
-            skip_defaults: Optional[bool] = None,
-            exclude_unset: bool = False,
-            exclude_defaults: bool = False,
-            exclude_none: bool = False,
-            exclude_unchanged: bool = False,
-        ) -> Dict[str, Any]:
-            """
-            Generate a dictionary representation of the model, optionally
-            specifying which fields to include or exclude.
-            """
-
-            return super().dict(
-                **self._get_changed_export_includes(
-                    include=include,
-                    exclude=exclude,
-                    by_alias=by_alias,
-                    skip_defaults=skip_defaults,
-                    exclude_unset=exclude_unset,
-                    exclude_defaults=exclude_defaults,
-                    exclude_none=exclude_none,
-                    exclude_unchanged=exclude_unchanged,
-                ),
-            )
-
-        def json(  # type: ignore[misc]
-            self,
-            include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-            by_alias: bool = False,
-            skip_defaults: Optional[bool] = None,
-            exclude_unset: bool = False,
-            exclude_defaults: bool = False,
-            exclude_none: bool = False,
-            exclude_unchanged: bool = False,
-            encoder: Optional[Callable[[Any], Any]] = None,
-            models_as_dict: bool = True,
-            **dumps_kwargs: Any,
-        ) -> str:
-            """
-            Generate a JSON representation of the model, `include` and `exclude`
-            arguments as per `dict()`.
-            """
-
-            return super().json(
-                **self._get_changed_export_includes(
-                    include=include,
-                    exclude=exclude,
-                    by_alias=by_alias,
-                    skip_defaults=skip_defaults,
-                    exclude_unset=exclude_unset,
-                    exclude_defaults=exclude_defaults,
-                    exclude_none=exclude_none,
-                    exclude_unchanged=exclude_unchanged,
-                    encoder=encoder,
-                    models_as_dict=models_as_dict,
-                    **dumps_kwargs,
-                ),
-            )
+        return super().json(
+            **self._get_changed_export_includes(
+                include=include,
+                exclude=exclude,
+                by_alias=by_alias,
+                exclude_unset=exclude_unset,
+                exclude_defaults=exclude_defaults,
+                exclude_none=exclude_none,
+                exclude_unchanged=exclude_unchanged,
+                **dumps_kwargs,
+            ),
+        )
 
     # Compatibility methods for older versions of pydantic-changedetect
 

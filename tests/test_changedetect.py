@@ -1,13 +1,12 @@
 import datetime
 import decimal
 import pickle
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import pydantic
 import pytest
 
 from pydantic_changedetect import ChangeDetectionMixin
-from pydantic_changedetect._compat import PYDANTIC_V1, PYDANTIC_V2
 
 
 class Something(ChangeDetectionMixin, pydantic.BaseModel):
@@ -118,7 +117,6 @@ def test_set_changed_will_disallow_invalid_field_names():
         obj.model_set_changed("invalid_field_name")
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_copy()")
 def test_copy_keeps_state():
     obj = Something(id=1)
 
@@ -148,7 +146,6 @@ def test_copy_keeps_state_with_v1_api():
         assert obj.copy().model_changed_fields == {"id"}
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_dump()")
 def test_export_as_dict():
     obj = Something(id=1)
 
@@ -160,7 +157,6 @@ def test_export_as_dict():
     assert obj.model_dump(exclude_unchanged=True) == {"id": 2}
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
 def test_export_as_dict_with_v1_api_on_v2():
     obj = Something(id=1)
 
@@ -175,19 +171,6 @@ def test_export_as_dict_with_v1_api_on_v2():
         assert obj.dict(exclude_unchanged=True) == {"id": 2}
 
 
-@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
-def test_export_as_dict_with_v1_api():
-    obj = Something(id=1)
-
-    assert obj.dict() == {"id": 1}
-    assert obj.dict(exclude_unchanged=True) == {}
-
-    obj.id = 2
-
-    assert obj.dict(exclude_unchanged=True) == {"id": 2}
-
-
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_dump_json()")
 def test_export_as_json():
     obj = Something(id=1)
 
@@ -199,7 +182,6 @@ def test_export_as_json():
     assert obj.model_dump_json(exclude_unchanged=True) == '{"id":2}'
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does have a slightly different result")
 def test_export_as_json_with_v1_api_on_v2():
     obj = Something(id=1)
 
@@ -214,19 +196,6 @@ def test_export_as_json_with_v1_api_on_v2():
         assert obj.json(exclude_unchanged=True) == '{"id":2}'
 
 
-@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does have a slightly different result")
-def test_export_as_json_with_v1_api():
-    obj = Something(id=1)
-
-    assert obj.json() == '{"id": 1}'
-    assert obj.json(exclude_unchanged=True) == '{}'
-
-    obj.id = 2
-
-    assert obj.json(exclude_unchanged=True) == '{"id": 2}'
-
-
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_dump_json()")
 def test_export_include_is_intersect():
     something = Something(id=1)
 
@@ -238,7 +207,6 @@ def test_export_include_is_intersect():
     assert something.model_dump(exclude_unchanged=True, include={'id'}) == {"id": 2}
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
 def test_export_include_is_intersect_with_v1_api_on_v2():
     something = Something(id=1)
 
@@ -253,19 +221,6 @@ def test_export_include_is_intersect_with_v1_api_on_v2():
         assert something.dict(exclude_unchanged=True, include={'id'}) == {"id": 2}
 
 
-@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
-def test_export_include_is_intersect_with_v1_api():
-    something = Something(id=1)
-
-    assert something.dict(exclude_unchanged=True, include={'name'}) == {}
-
-    something.id = 2
-
-    assert something.dict(exclude_unchanged=True, include=set()) == {}
-    assert something.dict(exclude_unchanged=True, include={'id'}) == {"id": 2}
-
-
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_dump_json()")
 def test_changed_base_is_resetable():
     something = Something(id=1)
     something.id = 2
@@ -277,7 +232,6 @@ def test_changed_base_is_resetable():
     assert something.model_dump(exclude_unchanged=True) == {}
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
 def test_changed_base_is_resetable_with_v1_api_on_v2():
     something = Something(id=1)
     something.id = 2
@@ -289,18 +243,6 @@ def test_changed_base_is_resetable_with_v1_api_on_v2():
 
     with pytest.warns(DeprecationWarning):
         assert something.dict(exclude_unchanged=True) == {}
-
-
-@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
-def test_changed_base_is_resetable_with_v1_api():
-    something = Something(id=1)
-    something.id = 2
-
-    assert something.dict(exclude_unchanged=True) == {"id": 2}
-
-    something.model_reset_changed()
-
-    assert something.dict(exclude_unchanged=True) == {}
 
 
 def test_pickle_keeps_state():
@@ -473,7 +415,6 @@ def test_value_types_checked_for_equality(
     assert obj.model_has_changed is expected
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_construct()")
 def test_model_construct_works():
     something = Something.model_construct(id=1)
 
@@ -484,7 +425,6 @@ def test_model_construct_works():
     assert something.model_has_changed is True
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not support model_construct()")
 def test_model_construct_works_for_models_loaded_with_few_fields():
     something_multiple_fields = SomethingMultipleFields.model_construct(id=1)
 
@@ -495,21 +435,9 @@ def test_model_construct_works_for_models_loaded_with_few_fields():
     assert something_multiple_fields.model_has_changed is True
 
 
-@pytest.mark.skipif(PYDANTIC_V1, reason="pydantic v1 does not trigger warnings")
 def test_construct_works_on_v2():
     with pytest.warns(DeprecationWarning):
         something = Something.construct(id=1)
-
-    assert something.model_has_changed is False
-
-    something.id = 2
-
-    assert something.model_has_changed is True
-
-
-@pytest.mark.skipif(PYDANTIC_V2, reason="pydantic v2 does trigger warnings")
-def test_construct_works_on_v1():
-    something = Something.construct(id=1)
 
     assert something.model_has_changed is False
 
