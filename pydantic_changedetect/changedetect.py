@@ -16,11 +16,12 @@ from typing import (
 
 import pydantic
 
-from ._compat import PYDANTIC_VERSION_TUPLE
+from ._compat import PYDANTIC_GE_V2_7
 from .utils import is_pydantic_change_detect_annotation
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import PrivateAttr
+    from pydantic.main import IncEx
     from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
 
     Model = TypeVar("Model", bound="ChangeDetectionMixin")
@@ -448,7 +449,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
         return clone
 
-    if PYDANTIC_VERSION_TUPLE >= (2, 7, 0):
+    if PYDANTIC_GE_V2_7:
         def model_dump(  # pyright: ignore [reportRedeclaration]
             self,
             *,

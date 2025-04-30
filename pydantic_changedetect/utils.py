@@ -44,10 +44,13 @@ def is_class_type(annotation: Any) -> bool:
     return get_origin(annotation) is None
 
 
-def is_pydantic_change_detect_annotation(annotation: type[Any]) -> bool:
+def is_pydantic_change_detect_annotation(annotation: type[Any] | None) -> bool:
     """
     Return True if the given annotation is a ChangeDetectionMixin annotation.
     """
+
+    if annotation is None:
+        return False
 
     # if annotation is an ChangeDetectionMixin everything is easy
     if (

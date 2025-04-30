@@ -1,3 +1,4 @@
 from pydantic.version import VERSION as PYDANTIC_VERSION
 
 PYDANTIC_VERSION_TUPLE = tuple(map(int, PYDANTIC_VERSION.split('.')))
+PYDANTIC_GE_V2_7 = PYDANTIC_VERSION_TUPLE >= (2, 7, 0)
