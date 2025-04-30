@@ -5,11 +5,11 @@ on:
   schedule:
     - cron: '0 7 * * 1'
 jobs:
-  test:
+  test-older-python:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -22,4 +22,22 @@ jobs:
           poetry install
       - name: Test with pytest
         run: |
-          poetry run tox -e 'py-1.9,py-1.10,py-2.x'
+          poetry run tox -e 'py-2.6,py-2.x'
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade poetry
+          poetry install
+      - name: Test with pytest
+        run: |
+          poetry run tox -e 'py-2.x'
