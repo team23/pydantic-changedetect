@@ -90,7 +90,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         """Return list of all changed fields, submodels are considered as one field"""
 
         changed_fields = self.model_self_changed_fields.copy()
-        for field_name, model_field in self.model_fields.items():
+        for field_name, model_field in self.__class__.model_fields.items():
             # Support for instances created through model_construct, when not all fields have been defined
             if field_name not in self.__dict__:
                 continue
@@ -137,7 +137,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         """Return a list of all changed fields recursive using dotted syntax"""
 
         changed_fields = self.model_self_changed_fields.copy()
-        for field_name, model_field in self.model_fields.items():
+        for field_name, model_field in self.__class__.model_fields.items():
             field_value = self.__dict__[field_name]
 
             # Value is a ChangeDetectionMixin instance itself
@@ -258,7 +258,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         # Get original value
         original_update = {}
-        if name in self.model_fields and name not in self.model_original:
+        if name in self.__class__.model_fields and name not in self.model_original:
             original_update[name] = self.__dict__[name]
 
         # Store changed value using pydantic
@@ -266,7 +266,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
         # Check if value has actually been changed
         has_changed = True
-        if name in self.model_fields:
+        if name in self.__class__.model_fields:
             # Fetch original from original_update so we don't have to check everything again
             original_value = original_update.get(name, None)
             # Don't use value parameter directly, as pydantic validation might have changed it
