@@ -1,6 +1,6 @@
 [project]
 name = "pydantic-changedetect"
-version = "0.9.0"
+version = "0.10.0"
 description = "Extend pydantic models to also detect and record changes made to the model attributes."
 authors = [{ name = "TEAM23 GmbH", email = "info@team23.de" }]
 license = "MIT"
