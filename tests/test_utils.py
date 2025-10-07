@@ -67,7 +67,8 @@ class OtherModel(pydantic.BaseModel):
 def test_is_pydantic_change_detect_annotation_direct_types():
     assert is_pydantic_change_detect_annotation(int) is False
     assert is_pydantic_change_detect_annotation(str) is False
-    assert is_pydantic_change_detect_annotation(Union[int, str]) is False
+    assert is_pydantic_change_detect_annotation(Union[int, str]) is False  # noqa: UP007
+    assert is_pydantic_change_detect_annotation(int | str) is False
     assert is_pydantic_change_detect_annotation(OtherModel) is False
 
     assert is_pydantic_change_detect_annotation(ChangeDetectionMixin) is True
@@ -75,20 +76,29 @@ def test_is_pydantic_change_detect_annotation_direct_types():
 
 
 def test_is_pydantic_change_detect_annotation_optional_types():
-    assert is_pydantic_change_detect_annotation(Optional[int]) is False
-    assert is_pydantic_change_detect_annotation(Optional[OtherModel]) is False
+    assert is_pydantic_change_detect_annotation(Optional[int]) is False  # noqa: UP045
+    assert is_pydantic_change_detect_annotation(int | None) is False
+    assert is_pydantic_change_detect_annotation(Optional[OtherModel]) is False  # noqa: UP045
+    assert is_pydantic_change_detect_annotation(OtherModel | None) is False
 
-    assert is_pydantic_change_detect_annotation(Optional[SomeModel]) is True
+    assert is_pydantic_change_detect_annotation(Optional[SomeModel]) is True  # noqa: UP045
+    assert is_pydantic_change_detect_annotation(SomeModel | None) is True
 
 
 def test_is_pydantic_change_detect_annotation_union_types():
-    assert is_pydantic_change_detect_annotation(Union[int, None]) is False
-    assert is_pydantic_change_detect_annotation(Union[OtherModel, int]) is False
-    assert is_pydantic_change_detect_annotation(Union[OtherModel, None]) is False
+    assert is_pydantic_change_detect_annotation(Union[int, None]) is False  # noqa: UP007
+    assert is_pydantic_change_detect_annotation(int | None) is False
+    assert is_pydantic_change_detect_annotation(Union[OtherModel, int]) is False  # noqa: UP007
+    assert is_pydantic_change_detect_annotation(OtherModel | int) is False
+    assert is_pydantic_change_detect_annotation(Union[OtherModel, None]) is False  # noqa: UP007
+    assert is_pydantic_change_detect_annotation(OtherModel | None) is False
 
-    assert is_pydantic_change_detect_annotation(Union[SomeModel, None]) is True
-    assert is_pydantic_change_detect_annotation(Union[SomeModel, int]) is True
-    assert is_pydantic_change_detect_annotation(Union[SomeModel, OtherModel]) is True
+    assert is_pydantic_change_detect_annotation(Union[SomeModel, None]) is True  # noqa: UP007
+    assert is_pydantic_change_detect_annotation(SomeModel | None) is True
+    assert is_pydantic_change_detect_annotation(Union[SomeModel, int]) is True  # noqa: UP007
+    assert is_pydantic_change_detect_annotation(SomeModel | int) is True
+    assert is_pydantic_change_detect_annotation(Union[SomeModel, OtherModel]) is True  # noqa: UP007
+    assert is_pydantic_change_detect_annotation(SomeModel | OtherModel) is True
 
 
 def test_is_pydantic_change_detect_annotation_list_types():

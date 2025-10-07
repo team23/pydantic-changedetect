@@ -39,7 +39,7 @@ class NestedDict(ChangeDetectionMixin, pydantic.BaseModel):
 
 
 class NestedUnsupported(ChangeDetectionMixin, pydantic.BaseModel):
-    sub: Union[Unsupported, Something]
+    sub: Unsupported | Something
 
 
 class NestedWithDefault(ChangeDetectionMixin, pydantic.BaseModel):
@@ -53,16 +53,16 @@ class SomethingWithBrokenPickleState(Something):
 
 
 class SomethingWithDifferentValueTypes(ChangeDetectionMixin, pydantic.BaseModel):
-    s: Union[str, None] = None
-    i: Union[int, None] = None
-    f: Union[float, None] = None
-    b: Union[bool, None] = None
-    d: Union[decimal.Decimal, None] = None
-    ddt: Union[datetime.datetime, None] = None
-    dd: Union[datetime.date, None] = None
-    dt: Union[datetime.time, None] = None
-    dtd: Union[datetime.timedelta, None] = None
-    m: Union[Something, None] = None
+    s: str | None = None
+    i: int | None = None
+    f: float | None = None
+    b: bool | None = None
+    d: decimal.Decimal | None = None
+    ddt: datetime.datetime | None = None
+    dd: datetime.date | None = None
+    dt: datetime.time | None = None
+    dtd: datetime.timedelta | None = None
+    m: Something | None = None
 
 
 def test_initial_state():
@@ -365,7 +365,7 @@ def test_nested_with_default():
 
 def test_use_private_attributes_works():
     class SomethingPrivate(Something):
-        _private: Optional[int] = pydantic.PrivateAttr(None)
+        _private: int | None = pydantic.PrivateAttr(None)
 
     something = SomethingPrivate(id=1)
 

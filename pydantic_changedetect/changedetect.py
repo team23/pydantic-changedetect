@@ -6,7 +6,6 @@ from typing import (
     Any,
     Dict,  # We still need to use this, as dict is a class method and pollutes the class scope
     Literal,
-    Optional,
     TypeVar,
     Union,
     cast,
@@ -439,7 +438,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         object.__setattr__(clone, "model_changed_markers", self.model_changed_markers.copy())
         return clone
 
-    def __deepcopy__(self: "Model", memo: Optional[Dict[int, Any]] = None) -> "Model":
+    def __deepcopy__(self: "Model", memo: Dict[int, Any] | None = None) -> "Model":
         clone = cast(
             "Model",
             super().__deepcopy__(memo=memo),
@@ -453,10 +452,10 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def model_dump(  # pyright: ignore [reportRedeclaration]
             self,
             *,
-            mode: Union[Literal['json', 'python'], str] = 'python',
+            mode: Literal['json', 'python'] | str = 'python',
             include: "IncEx | None" = None,
             exclude: "IncEx | None" = None,
-            context: Optional[Dict[str, Any]] = None,  # Available since 2.7
+            context: Dict[str, Any] | None = None,  # Available since 2.7
             by_alias: bool = False,
             exclude_unset: bool = False,
             exclude_defaults: bool = False,
@@ -493,10 +492,10 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def model_dump_json(  # pyright: ignore [reportRedeclaration]
             self,
             *,
-            indent: Optional[int] = None,
+            indent: int | None = None,
             include: "IncEx | None" = None,
             exclude: "IncEx | None" = None,
-            context: Optional[Dict[str, Any]] = None,  # Available since 2.7
+            context: Dict[str, Any] | None = None,  # Available since 2.7
             by_alias: bool = False,
             exclude_unset: bool = False,
             exclude_defaults: bool = False,
@@ -533,7 +532,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def model_dump(  # pyright: ignore [reportIncompatibleMethodOverride]
             self,
             *,
-            mode: Union[Literal['json', 'python'], str] = 'python',
+            mode: Literal['json', 'python'] | str = 'python',
             include: "IncEx | None" = None,
             exclude: "IncEx | None" = None,
             by_alias: bool = False,
@@ -569,7 +568,7 @@ class ChangeDetectionMixin(pydantic.BaseModel):
         def model_dump_json(  # pyright: ignore [reportIncompatibleMethodOverride]
             self,
             *,
-            indent: Optional[int] = None,
+            indent: int | None = None,
             include: "IncEx | None" = None,
             exclude: "IncEx | None" = None,
             by_alias: bool = False,
@@ -607,9 +606,9 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     def copy(
         self: "Model",
         *,
-        include: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
-        exclude: "Union[AbstractSetIntStr, MappingIntStrAny, None]" = None,
-        update: Optional[Dict[str, Any]] = None,
+        include: "AbstractSetIntStr | MappingIntStrAny | None" = None,
+        exclude: "AbstractSetIntStr | MappingIntStrAny | None" = None,
+        update: Dict[str, Any] | None = None,
         deep: bool = False,
     ) -> "Model":
         warnings.warn(
@@ -634,8 +633,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
     def dict(  # type: ignore
         self,
         *,
-        include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-        exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+        include: Union['AbstractSetIntStr', 'MappingIntStrAny'] | None = None,
+        exclude: Union['AbstractSetIntStr', 'MappingIntStrAny'] | None = None,
         by_alias: bool = False,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
@@ -661,8 +660,8 @@ class ChangeDetectionMixin(pydantic.BaseModel):
 
     def json(  # type: ignore
         self,
-        include: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
-        exclude: Optional[Union['AbstractSetIntStr', 'MappingIntStrAny']] = None,
+        include: Union['AbstractSetIntStr', 'MappingIntStrAny'] | None = None,
+        exclude: Union['AbstractSetIntStr', 'MappingIntStrAny'] | None = None,
         by_alias: bool = False,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
