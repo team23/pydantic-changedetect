@@ -4,6 +4,7 @@ version = "0.10.0"
 description = "Extend pydantic models to also detect and record changes made to the model attributes."
 authors = [{ name = "TEAM23 GmbH", email = "info@team23.de" }]
 license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
